@@ -5,7 +5,7 @@ export function defaultState() {
     gold: 30,
     wave: 1,
     kills: 0,
-    turrets: [{ type: 'gun', slot: 2 }],
+    turrets: [{ type: 'gun' }],
     upgrades: {
       gun: { dmg: 0, rate: 0 },
       mortar: { dmg: 0, rate: 0 },
@@ -26,9 +26,11 @@ export function load() {
     if (!raw) return defaultState();
     const base = defaultState();
     const s = { ...base, ...JSON.parse(raw) };
-    // Older saves miss newer turret types and the spawn upgrades entirely.
+    // Older saves miss newer turret types and the spawn upgrades entirely,
+    // and carried a now-obsolete slot per turret.
     s.upgrades = { ...base.upgrades, ...s.upgrades };
     s.spawnUpgrades = { ...base.spawnUpgrades, ...s.spawnUpgrades };
+    s.turrets = s.turrets.map((t) => ({ type: t.type }));
     return s;
   } catch {
     return defaultState();

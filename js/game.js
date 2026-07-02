@@ -1,12 +1,10 @@
 import {
   W,
   TURRET_Y,
-  SLOTS,
   SPAWN,
   TURRET_TYPES,
   UPGRADE_TYPES,
   SPAWN_UPGRADES,
-  MAX_DRONES,
   waveConf,
 } from './config.js';
 
@@ -22,6 +20,7 @@ export class Game {
     this.tracers = []; // sniper shot visuals
     this.cd = new Map(); // per-turret cooldowns (runtime only, not saved)
     this.dronePos = new Map(); // per-drone position (runtime only)
+    this.turretPos = new Map(); // ground turret positions (runtime only)
     this.waveSpawned = 0;
     this.spawnTimer = 0.5;
     // Rolling gold/sec estimate, used for offline earnings.
@@ -62,17 +61,6 @@ export class Game {
     return this.state.turrets.filter((t) => t.type === type).length;
   }
 
-  freeSlot() {
-    const used = new Set(
-      this.state.turrets.filter((t) => t.slot != null).map((t) => t.slot),
-    );
-    // Fill from the middle outwards so the line stays symmetric.
-    for (const s of [2, 3, 1, 4, 0, 5]) {
-      if (!used.has(s)) return s;
-    }
-    return -1;
-  }
-
   spawnIntervalMult() {
     return Math.pow(0.92, this.state.spawnUpgrades.rate);
   }
@@ -89,18 +77,10 @@ export class Game {
   // --- player actions ------------------------------------------------------
 
   buyTurret(type) {
-    const def = TURRET_TYPES[type];
     const cost = this.turretCost(type);
     if (this.state.gold < cost) return false;
-    if (def.slotted) {
-      const slot = this.freeSlot();
-      if (slot === -1) return false;
-      this.state.turrets.push({ type, slot });
-    } else {
-      if (this.ownedCount(type) >= MAX_DRONES) return false;
-      this.state.turrets.push({ type, slot: null });
-    }
     this.state.gold -= cost;
+    this.state.turrets.push({ type });
     return true;
   }
 
@@ -127,6 +107,7 @@ export class Game {
 
   update(dt) {
     this.beams.length = 0;
+    this.updateLayout();
     this.updateWave(dt);
     this.updateZones(dt);
     this.updateEnemies(dt);
@@ -137,6 +118,22 @@ export class Game {
     this.updateTracers(dt);
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.trackGoldRate(dt);
+  }
+
+  // Ground turrets have no slots: they are spread evenly along the turret
+  // line in purchase order, splitting into a second row once it gets crowded.
+  updateLayout() {
+    const ground = this.state.turrets.filter((t) => !TURRET_TYPES[t.type].flying);
+    this.turretPos.clear();
+    const rows = ground.length <= 8 ? 1 : 2;
+    const perRow = Math.ceil(ground.length / rows);
+    ground.forEach((t, i) => {
+      const row = Math.floor(i / perRow);
+      const idx = i - row * perRow;
+      const inRow = Math.min(perRow, ground.length - row * perRow);
+      const x = inRow > 1 ? 10 + ((W - 20) / (inRow - 1)) * idx : W / 2;
+      this.turretPos.set(t, { x: Math.round(x), y: TURRET_Y + row * 7 });
+    });
   }
 
   updateWave(dt) {
@@ -212,33 +209,33 @@ export class Game {
       if (t.type === 'drone') {
         cd = this.updateDrone(t, st, cd, dt);
       } else if (t.type === 'laser') {
-        const x = SLOTS[t.slot];
-        const tip = { x, y: TURRET_Y - 5 };
+        const p = this.turretPos.get(t);
+        const tip = { x: p.x, y: p.y - 5 };
         const target = this.nearestEnemy(tip.x, tip.y, st.range);
         if (target) {
           this.damage(target, st.dmg * st.rate * dt);
           this.beams.push({ x0: tip.x, y0: tip.y, x1: target.x, y1: target.y });
         }
       } else if (t.type === 'gun') {
-        const x = SLOTS[t.slot];
-        const y = TURRET_Y - 2;
-        const target = this.nearestEnemy(x, y, st.range);
+        const p = this.turretPos.get(t);
+        const y = p.y - 2;
+        const target = this.nearestEnemy(p.x, y, st.range);
         if (target) {
-          t.angle = Math.atan2(target.y - y, target.x - x);
+          t.angle = Math.atan2(target.y - y, target.x - p.x);
           if (cd === 0) {
             cd = 1 / st.rate;
-            this.fireBullet(x, y, target, st.dmg, TURRET_TYPES.gun.bulletSpeed);
+            this.fireBullet(p.x, y, target, st.dmg, TURRET_TYPES.gun.bulletSpeed);
           }
         }
       } else if (t.type === 'mortar' || t.type === 'freezer') {
         const def = TURRET_TYPES[t.type];
-        const x = SLOTS[t.slot];
-        const target = this.nearestEnemy(x, TURRET_Y, st.range);
+        const p = this.turretPos.get(t);
+        const target = this.nearestEnemy(p.x, p.y, st.range);
         if (target && cd === 0) {
           cd = 1 / st.rate;
           this.shells.push({
-            x0: x,
-            y0: TURRET_Y - 3,
+            x0: p.x,
+            y0: p.y - 3,
             x1: Math.min(Math.max(target.x + target.vx * def.shellTime, 2), W - 2),
             y1: Math.min(target.y + target.vy * def.shellTime, TURRET_Y - 5),
             t: 0,
@@ -252,9 +249,9 @@ export class Game {
         const target = this.toughestEnemy();
         if (target && cd === 0) {
           cd = 1 / st.rate;
-          const x = SLOTS[t.slot];
+          const p = this.turretPos.get(t);
           this.damage(target, st.dmg);
-          this.tracers.push({ x0: x, y0: TURRET_Y - 7, x1: target.x, y1: target.y, t: 0 });
+          this.tracers.push({ x0: p.x, y0: p.y - 7, x1: target.x, y1: target.y, t: 0 });
         }
       }
       this.cd.set(t, cd);

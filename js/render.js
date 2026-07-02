@@ -1,4 +1,4 @@
-import { W, H, TURRET_Y, SLOTS, SPAWN } from './config.js';
+import { W, H, TURRET_Y, SPAWN } from './config.js';
 
 const BOSS_PATTERN = ['#...#', '.###.', '#####', '.###.', '#...#'];
 
@@ -24,8 +24,6 @@ export function render(ctx, game, time) {
 function drawGround(ctx, game) {
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, TURRET_Y + 3, W, H - TURRET_Y - 3);
-  ctx.fillStyle = '#444';
-  for (const x of SLOTS) ctx.fillRect(x - 3, TURRET_Y + 3, 7, 1);
 }
 
 function drawPortal(ctx, time) {
@@ -131,10 +129,9 @@ function drawBlasts(ctx, game) {
 }
 
 function drawTurrets(ctx, game) {
-  for (const t of game.state.turrets) {
-    if (t.slot == null) continue; // drones are drawn separately
-    const x = SLOTS[t.slot];
-    const y = TURRET_Y;
+  for (const [t, p] of game.turretPos) {
+    const x = p.x;
+    const y = p.y;
     ctx.fillStyle = '#fff';
     if (t.type === 'gun') {
       ctx.fillRect(x - 2, y - 2, 5, 4);

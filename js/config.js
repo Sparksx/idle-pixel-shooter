@@ -4,12 +4,11 @@ export const W = 160;
 export const H = 200;
 
 // Turrets sit on a line near the bottom, enemies spawn from a portal in the
-// middle of the arena and march toward the turret line.
+// middle of the arena and march toward the turret line. There is no slot
+// limit: ground turrets are packed dynamically along the line (a second row
+// opens up when it gets crowded) and drones fly free.
 export const TURRET_Y = 184;
-export const SLOTS = [20, 44, 68, 92, 116, 140];
 export const SPAWN = { x: W / 2, y: 72 };
-
-export const MAX_DRONES = 8;
 
 export const TURRET_TYPES = {
   gun: {
@@ -21,7 +20,6 @@ export const TURRET_TYPES = {
     rate: 2, // shots per second
     range: 80,
     bulletSpeed: 140,
-    slotted: true,
   },
   mortar: {
     name: 'MORTAR',
@@ -33,11 +31,10 @@ export const TURRET_TYPES = {
     range: 120,
     splash: 13,
     shellTime: 0.9, // seconds of flight
-    slotted: true,
   },
   drone: {
     name: 'DRONE',
-    desc: 'flies over the arena, needs no slot',
+    desc: 'flies over the arena, hunts on its own',
     baseCost: 250,
     costGrowth: 1.8,
     dmg: 1.5,
@@ -45,7 +42,7 @@ export const TURRET_TYPES = {
     range: 34,
     bulletSpeed: 120,
     moveSpeed: 42,
-    slotted: false,
+    flying: true,
   },
   laser: {
     name: 'LASER',
@@ -55,7 +52,6 @@ export const TURRET_TYPES = {
     dmg: 7, // damage per second (dps = dmg * rate, rate starts at 1)
     rate: 1,
     range: 70,
-    slotted: true,
   },
   freezer: {
     name: 'FREEZER',
@@ -69,7 +65,6 @@ export const TURRET_TYPES = {
     zoneDuration: 3,
     slowFactor: 0.35, // speed multiplier for enemies inside a freeze zone
     shellTime: 0.9,
-    slotted: true,
   },
   sniper: {
     name: 'SNIPER',
@@ -79,7 +74,6 @@ export const TURRET_TYPES = {
     dmg: 45,
     rate: 0.15,
     range: 999, // whole arena
-    slotted: true,
   },
 };
 

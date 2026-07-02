@@ -12,12 +12,13 @@ turrets.
 - Six weapon types:
   - **GUN** — fast single-target bullets
   - **MORTAR** — slow arcing shells with splash damage
-  - **DRONE** — flies over the arena hunting enemies, doesn't use a slot
+  - **DRONE** — flies over the arena hunting enemies on its own
   - **LASER** — continuous beam, damage per second
   - **FREEZER** — lobs zone shots that slow every enemy inside
   - **SNIPER** — very slow, huge hits on the toughest enemy anywhere
-- Six turret slots for slotted weapons, filled from the middle outwards;
-  up to 8 drones fly free
+- No slot limit: buy as many weapons as you can afford — each copy of a
+  weapon costs more than the last. Ground weapons pack themselves along
+  the turret line (splitting into a second row when crowded), drones fly
 - Tabbed panel: one tab per weapon (buy + per-type **DMG**/**RATE**
   upgrades) plus a **SPAWN** tab with global portal upgrades:
   - **SPAWN RATE** — enemies arrive faster

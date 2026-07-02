@@ -1,4 +1,4 @@
-import { TURRET_TYPES, UPGRADE_TYPES, SPAWN_UPGRADES, MAX_DRONES } from './config.js';
+import { TURRET_TYPES, UPGRADE_TYPES, SPAWN_UPGRADES } from './config.js';
 
 export function fmt(n) {
   n = Math.floor(n);
@@ -81,11 +81,8 @@ export function buildUI(game) {
       const owned = game.ownedCount(type);
       const cost = game.turretCost(type);
       buy.label.textContent = `+ BUY ${def.name}` + (owned ? ` (${owned})` : '');
-      let blocked = null;
-      if (def.slotted && game.freeSlot() === -1) blocked = 'SLOTS FULL';
-      if (!def.slotted && owned >= MAX_DRONES) blocked = `MAX ${MAX_DRONES}`;
-      buy.sub.textContent = blocked ?? `${fmt(cost)} G`;
-      buy.btn.disabled = blocked != null || game.state.gold < cost;
+      buy.sub.textContent = `${fmt(cost)} G`;
+      buy.btn.disabled = game.state.gold < cost;
     });
 
     for (const kind of Object.keys(UPGRADE_TYPES)) {
