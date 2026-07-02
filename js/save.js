@@ -10,7 +10,11 @@ export function defaultState() {
       gun: { dmg: 0, rate: 0 },
       mortar: { dmg: 0, rate: 0 },
       laser: { dmg: 0, rate: 0 },
+      drone: { dmg: 0, rate: 0 },
+      freezer: { dmg: 0, rate: 0 },
+      sniper: { dmg: 0, rate: 0 },
     },
+    spawnUpgrades: { rate: 0, gold: 0, swarm: 0, offline: 0 },
     goldPerSec: 0,
     lastSeen: Date.now(),
   };
@@ -22,7 +26,9 @@ export function load() {
     if (!raw) return defaultState();
     const base = defaultState();
     const s = { ...base, ...JSON.parse(raw) };
+    // Older saves miss newer turret types and the spawn upgrades entirely.
     s.upgrades = { ...base.upgrades, ...s.upgrades };
+    s.spawnUpgrades = { ...base.spawnUpgrades, ...s.spawnUpgrades };
     return s;
   } catch {
     return defaultState();

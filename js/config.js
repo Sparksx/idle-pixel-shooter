@@ -9,18 +9,23 @@ export const TURRET_Y = 184;
 export const SLOTS = [20, 44, 68, 92, 116, 140];
 export const SPAWN = { x: W / 2, y: 72 };
 
+export const MAX_DRONES = 8;
+
 export const TURRET_TYPES = {
   gun: {
     name: 'GUN',
+    desc: 'fast single-target bullets',
     baseCost: 50,
     costGrowth: 1.7,
     dmg: 2,
     rate: 2, // shots per second
     range: 80,
     bulletSpeed: 140,
+    slotted: true,
   },
   mortar: {
     name: 'MORTAR',
+    desc: 'slow arcing shells, splash damage',
     baseCost: 150,
     costGrowth: 1.7,
     dmg: 12,
@@ -28,14 +33,53 @@ export const TURRET_TYPES = {
     range: 120,
     splash: 13,
     shellTime: 0.9, // seconds of flight
+    slotted: true,
+  },
+  drone: {
+    name: 'DRONE',
+    desc: 'flies over the arena, needs no slot',
+    baseCost: 250,
+    costGrowth: 1.8,
+    dmg: 1.5,
+    rate: 3,
+    range: 34,
+    bulletSpeed: 120,
+    moveSpeed: 42,
+    slotted: false,
   },
   laser: {
     name: 'LASER',
+    desc: 'continuous beam, damage per second',
     baseCost: 300,
     costGrowth: 1.7,
     dmg: 7, // damage per second (dps = dmg * rate, rate starts at 1)
     rate: 1,
     range: 70,
+    slotted: true,
+  },
+  freezer: {
+    name: 'FREEZER',
+    desc: 'lobs zone shots that slow enemies',
+    baseCost: 400,
+    costGrowth: 1.7,
+    dmg: 4,
+    rate: 0.33,
+    range: 120,
+    zoneRadius: 14,
+    zoneDuration: 3,
+    slowFactor: 0.35, // speed multiplier for enemies inside a freeze zone
+    shellTime: 0.9,
+    slotted: true,
+  },
+  sniper: {
+    name: 'SNIPER',
+    desc: 'slow, huge hits on the toughest enemy',
+    baseCost: 600,
+    costGrowth: 1.7,
+    dmg: 45,
+    rate: 0.15,
+    range: 999, // whole arena
+    slotted: true,
   },
 };
 
@@ -43,6 +87,35 @@ export const TURRET_TYPES = {
 export const UPGRADE_TYPES = {
   dmg: { name: 'DMG', baseCost: 25, costGrowth: 1.6, mult: 1.25 },
   rate: { name: 'RATE', baseCost: 25, costGrowth: 1.6, mult: 1.12 },
+};
+
+// Global upgrades for the spawn portal, bought in the SPAWN tab.
+export const SPAWN_UPGRADES = {
+  rate: {
+    name: 'SPAWN RATE',
+    desc: '-8% spawn delay',
+    baseCost: 100,
+    costGrowth: 1.75,
+  },
+  gold: {
+    name: 'GOLD BONUS',
+    desc: '+15% gold per kill',
+    baseCost: 150,
+    costGrowth: 1.8,
+  },
+  swarm: {
+    name: 'SWARM SIZE',
+    desc: '+1 enemy per wave',
+    baseCost: 200,
+    costGrowth: 1.8,
+  },
+  offline: {
+    name: 'OFFLINE GAIN',
+    desc: '+5% offline earnings',
+    baseCost: 250,
+    costGrowth: 1.9,
+    maxLevel: 10, // 50% base + 10 * 5% = 100%
+  },
 };
 
 export const BOSS_EVERY = 10;
