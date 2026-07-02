@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Idle Pixel Shooter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+  <header>
+    <h1>IDLE PIXEL SHOOTER</h1>
+    <div id="stats">
+      <span>GOLD <b id="stat-gold">0</b></span>
+      <span>WAVE <b id="stat-wave">1</b></span>
+      <span>KILLS <b id="stat-kills">0</b></span>
+    </div>
+  </header>
+  <canvas id="arena" width="160" height="200"></canvas>
+  <section id="panel">
+    <div id="shop" class="btn-row"></div>
+    <div id="upgrades" class="btn-grid"></div>
+    <footer>
+      <span>POC &mdash; saves in your browser</span>
+      <button id="reset" class="link">reset save</button>
+    </footer>
+  </section>
+  <div id="toast" hidden></div>
+</main>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
