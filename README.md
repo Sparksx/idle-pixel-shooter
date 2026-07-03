@@ -9,17 +9,27 @@ turrets.
 
 ## Features
 
-- Three turret types:
+- Six weapon types:
   - **GUN** — fast single-target bullets
   - **MORTAR** — slow arcing shells with splash damage
+  - **DRONE** — flies over the arena hunting enemies on its own
   - **LASER** — continuous beam, damage per second
-- Six turret slots, filled from the middle outwards
-- Per-type **DMG** and **RATE** upgrades that apply to every turret of that type
+  - **FREEZER** — lobs zone shots that slow every enemy inside
+  - **SNIPER** — very slow, huge hits on the toughest enemy anywhere
+- No slot limit: buy as many weapons as you can afford — each copy of a
+  weapon costs more than the last. Ground weapons pack themselves along
+  the turret line (splitting into a second row when crowded), drones fly
+- Tabbed panel: one tab per weapon (buy + per-type **DMG**/**RATE**
+  upgrades) plus a **SPAWN** tab with global portal upgrades:
+  - **SPAWN RATE** — enemies arrive faster
+  - **GOLD BONUS** — more gold per kill
+  - **SWARM SIZE** — more enemies per wave
+  - **OFFLINE GAIN** — better offline earnings (max level 10)
 - Endless waves with scaling HP and gold; a multi-pixel **boss** every 10 waves
 - Enemies that slip past the turret line loop back through the portal — a
   wave only ends once everything is killed
-- Save is stored in browser `localStorage`, with simple offline earnings
-  (half of your recent gold/sec, capped at 8 hours) when you come back
+- Save is stored in browser `localStorage`, with offline earnings
+  (50–100% of your recent gold/sec, capped at 8 hours) when you come back
 - Works on desktop and mobile — pure HTML/CSS/JS, no build step, no backend
 
 ## Run locally

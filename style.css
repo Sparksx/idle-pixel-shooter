@@ -83,10 +83,33 @@ button small {
 button:active:not(:disabled) small { color: #000; }
 button:disabled small { color: #444; }
 
-.btn-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+#tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#tabs button {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  border-color: #555;
+  color: #999;
+}
+
+#tabs button.active {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+#tab-desc {
+  font-size: 10px;
+  color: #777;
+  min-height: 12px;
+  margin: 0;
 }
 
 .btn-grid {
@@ -94,6 +117,17 @@ button:disabled small { color: #444; }
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
+
+.span-2 { grid-column: 1 / -1; }
+
+button .desc {
+  color: #777;
+  font-size: 9px;
+}
+
+button .desc:empty { display: none; }
+
+button:active:not(:disabled) .desc { color: #333; }
 
 footer {
   display: flex;

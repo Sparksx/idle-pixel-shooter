@@ -1,4 +1,4 @@
-import { W, H, TURRET_Y, SLOTS, SPAWN } from './config.js';
+import { W, H, TURRET_Y, SPAWN } from './config.js';
 
 const BOSS_PATTERN = ['#...#', '.###.', '#####', '.###.', '#...#'];
 
@@ -9,20 +9,21 @@ export function render(ctx, game, time) {
 
   drawGround(ctx, game);
   drawPortal(ctx, time);
+  drawZones(ctx, game, time);
   drawBlasts(ctx, game);
   drawShells(ctx, game);
   drawBeams(ctx, game, time);
+  drawTracers(ctx, game);
   drawEnemies(ctx, game);
   drawBullets(ctx, game);
   drawTurrets(ctx, game);
+  drawDrones(ctx, game, time);
   drawBossBar(ctx, game);
 }
 
 function drawGround(ctx, game) {
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, TURRET_Y + 3, W, H - TURRET_Y - 3);
-  ctx.fillStyle = '#444';
-  for (const x of SLOTS) ctx.fillRect(x - 3, TURRET_Y + 3, 7, 1);
 }
 
 function drawPortal(ctx, time) {
@@ -32,6 +33,20 @@ function drawPortal(ctx, time) {
   ctx.strokeRect(SPAWN.x - h + 0.5, SPAWN.y - h + 0.5, h * 2, h * 2);
   ctx.fillStyle = '#fff';
   ctx.fillRect(SPAWN.x - 1, SPAWN.y - 1, 2, 2);
+}
+
+function drawZones(ctx, game, time) {
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 2]);
+  for (const z of game.zones) {
+    const shade = Math.round(180 - 120 * z.t);
+    ctx.strokeStyle = `rgb(${shade},${shade},${shade})`;
+    ctx.lineDashOffset = Math.floor(time * 8) % 4;
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
 }
 
 function drawEnemies(ctx, game) {
@@ -52,6 +67,13 @@ function drawEnemies(ctx, game) {
       }
     } else {
       ctx.fillRect(x - 1, y - 1, 3, 3);
+    }
+    // Frozen enemies get an outline so the slow is readable.
+    if (e.slow < 1) {
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      const r = e.boss ? 6 : 2;
+      ctx.strokeRect(x - r - 0.5, y - r - 0.5, r * 2 + 1, r * 2 + 1);
     }
   }
 }
@@ -83,6 +105,18 @@ function drawBeams(ctx, game, time) {
   }
 }
 
+function drawTracers(ctx, game) {
+  ctx.lineWidth = 1;
+  for (const tr of game.tracers) {
+    const shade = Math.round(255 - 200 * tr.t);
+    ctx.strokeStyle = `rgb(${shade},${shade},${shade})`;
+    ctx.beginPath();
+    ctx.moveTo(tr.x0 + 0.5, tr.y0 + 0.5);
+    ctx.lineTo(tr.x1 + 0.5, tr.y1 + 0.5);
+    ctx.stroke();
+  }
+}
+
 function drawBlasts(ctx, game) {
   ctx.lineWidth = 1;
   for (const b of game.blasts) {
@@ -95,10 +129,10 @@ function drawBlasts(ctx, game) {
 }
 
 function drawTurrets(ctx, game) {
-  ctx.fillStyle = '#fff';
-  for (const t of game.state.turrets) {
-    const x = SLOTS[t.slot];
-    const y = TURRET_Y;
+  for (const [t, p] of game.turretPos) {
+    const x = p.x;
+    const y = p.y;
+    ctx.fillStyle = '#fff';
     if (t.type === 'gun') {
       ctx.fillRect(x - 2, y - 2, 5, 4);
       const a = t.angle ?? -Math.PI / 2;
@@ -114,7 +148,28 @@ function drawTurrets(ctx, game) {
     } else if (t.type === 'laser') {
       ctx.fillRect(x - 2, y - 2, 5, 4);
       ctx.fillRect(x, y - 5, 1, 3);
+    } else if (t.type === 'freezer') {
+      ctx.fillRect(x - 3, y - 2, 7, 4);
+      ctx.fillRect(x - 2, y - 5, 5, 3);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x - 1, y - 4, 3, 1);
+    } else if (t.type === 'sniper') {
+      ctx.fillRect(x - 2, y - 2, 5, 4);
+      ctx.fillRect(x, y - 8, 1, 6);
     }
+  }
+}
+
+function drawDrones(ctx, game, time) {
+  for (const p of game.dronePos.values()) {
+    const x = Math.round(p.x);
+    const y = Math.round(p.y);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - 1, y - 1, 2, 2);
+    // Blinking rotor pixels.
+    ctx.fillStyle = Math.floor(time * 10) % 2 ? '#888' : '#ccc';
+    ctx.fillRect(x - 2, y - 2, 1, 1);
+    ctx.fillRect(x + 1, y - 2, 1, 1);
   }
 }
 
