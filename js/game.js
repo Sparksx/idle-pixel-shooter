@@ -36,7 +36,6 @@ export class Game {
     return {
       dmg: def.dmg * Math.pow(UPGRADE_TYPES.dmg.mult, up.dmg),
       rate: def.rate * Math.pow(UPGRADE_TYPES.rate.mult, up.rate),
-      range: def.range,
     };
   }
 
@@ -211,7 +210,7 @@ export class Game {
       } else if (t.type === 'laser') {
         const p = this.turretPos.get(t);
         const tip = { x: p.x, y: p.y - 5 };
-        const target = this.nearestEnemy(tip.x, tip.y, st.range);
+        const target = this.nearestEnemy(tip.x, tip.y);
         if (target) {
           this.damage(target, st.dmg * st.rate * dt);
           this.beams.push({ x0: tip.x, y0: tip.y, x1: target.x, y1: target.y });
@@ -219,7 +218,7 @@ export class Game {
       } else if (t.type === 'gun') {
         const p = this.turretPos.get(t);
         const y = p.y - 2;
-        const target = this.nearestEnemy(p.x, y, st.range);
+        const target = this.nearestEnemy(p.x, y);
         if (target) {
           t.angle = Math.atan2(target.y - y, target.x - p.x);
           if (cd === 0) {
@@ -230,7 +229,7 @@ export class Game {
       } else if (t.type === 'mortar' || t.type === 'freezer') {
         const def = TURRET_TYPES[t.type];
         const p = this.turretPos.get(t);
-        const target = this.nearestEnemy(p.x, p.y, st.range);
+        const target = this.nearestEnemy(p.x, p.y);
         if (target && cd === 0) {
           cd = 1 / st.rate;
           this.shells.push({
@@ -265,7 +264,7 @@ export class Game {
       p = { x: W / 2 + (Math.random() * 40 - 20), y: 150 };
       this.dronePos.set(t, p);
     }
-    const target = this.nearestEnemy(p.x, p.y, 999);
+    const target = this.nearestEnemy(p.x, p.y);
     // Hover just below its prey, or drift home when the arena is clear.
     const dest = target ? { x: target.x, y: target.y + 14 } : { x: W / 2, y: 145 };
     const dx = dest.x - p.x;
@@ -276,7 +275,7 @@ export class Game {
       p.x += (dx / d) * step;
       p.y += (dy / d) * step;
     }
-    if (target && cd === 0 && Math.hypot(target.x - p.x, target.y - p.y) <= st.range) {
+    if (target && cd === 0) {
       cd = 1 / st.rate;
       this.fireBullet(p.x, p.y, target, st.dmg, def.bulletSpeed);
     }
@@ -376,9 +375,10 @@ export class Game {
     }
   }
 
-  nearestEnemy(x, y, range) {
+  // Weapons have no range limit: anything on the field is targetable.
+  nearestEnemy(x, y) {
     let best = null;
-    let bd = range;
+    let bd = Infinity;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = Math.hypot(e.x - x, e.y - y);

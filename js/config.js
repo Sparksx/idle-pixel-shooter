@@ -18,7 +18,6 @@ export const TURRET_TYPES = {
     costGrowth: 1.7,
     dmg: 2,
     rate: 2, // shots per second
-    range: 80,
     bulletSpeed: 140,
   },
   mortar: {
@@ -28,7 +27,6 @@ export const TURRET_TYPES = {
     costGrowth: 1.7,
     dmg: 12,
     rate: 0.4,
-    range: 120,
     splash: 13,
     shellTime: 0.9, // seconds of flight
   },
@@ -39,7 +37,6 @@ export const TURRET_TYPES = {
     costGrowth: 1.8,
     dmg: 1.5,
     rate: 3,
-    range: 34,
     bulletSpeed: 120,
     moveSpeed: 42,
     flying: true,
@@ -51,7 +48,6 @@ export const TURRET_TYPES = {
     costGrowth: 1.7,
     dmg: 7, // damage per second (dps = dmg * rate, rate starts at 1)
     rate: 1,
-    range: 70,
   },
   freezer: {
     name: 'FREEZER',
@@ -60,7 +56,6 @@ export const TURRET_TYPES = {
     costGrowth: 1.7,
     dmg: 4,
     rate: 0.33,
-    range: 120,
     zoneRadius: 14,
     zoneDuration: 3,
     slowFactor: 0.35, // speed multiplier for enemies inside a freeze zone
@@ -73,7 +68,6 @@ export const TURRET_TYPES = {
     costGrowth: 1.7,
     dmg: 45,
     rate: 0.15,
-    range: 999, // whole arena
   },
 };
 
