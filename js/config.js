@@ -175,6 +175,166 @@ export const CORE_UPGRADES = {
   },
 };
 
+// Enemy variety: special types unlock with wave progress so each bracket of
+// waves changes the optimal turret mix. Every non-boss spawn rolls a kind
+// from the unlocked pool (weights below; the plain pixel stays the most
+// common). Stat fields multiply the wave's base hp/speed/gold; `splits` and
+// `blink` are behaviour hooks handled in Game.
+export const ENEMY_TYPES = {
+  normal: { name: 'PIXEL', weight: 10 },
+  runner: {
+    name: 'RUNNER',
+    minWave: 15,
+    weight: 3,
+    hp: 0.5,
+    speed: 2,
+    gold: 1.2,
+    intro: '2X SPEED, HALF HP',
+  },
+  tank: {
+    name: 'TANK',
+    minWave: 25,
+    weight: 3,
+    hp: 4,
+    speed: 0.5,
+    gold: 2.5,
+    intro: '4X HP, PAYS 2.5X',
+  },
+  splitter: {
+    name: 'SPLITTER',
+    minWave: 35,
+    weight: 3,
+    hp: 1.2,
+    speed: 0.9,
+    gold: 0.7,
+    // On death: 2-3 minis (5 for a splitter boss), each with a fraction of
+    // the parent's max hp and gold, running faster. Minis never re-split.
+    splits: { count: [2, 3], bossCount: 5, hp: 0.25, bossHp: 0.08, gold: 0.45, speed: 1.4 },
+    intro: 'SPLITS ON DEATH',
+  },
+  ghost: {
+    name: 'GHOST',
+    minWave: 50,
+    weight: 3,
+    hp: 0.8,
+    speed: 1.1,
+    gold: 1.8,
+    // Cycles: `visible` seconds targetable, then `hidden` seconds phased out
+    // (untargetable and immune). Punishes slow-rate turrets.
+    blink: { visible: 2.2, hidden: 1.0 },
+    intro: 'BLINKS OUT OF PHASE',
+  },
+};
+
+// From this wave on every boss rolls a modifier from the unlocked special
+// types: a runner boss, a splitting boss, a blinking boss...
+export const BOSS_MODS_FROM = 60;
+
+export function unlockedEnemyKinds(wave) {
+  return Object.keys(ENEMY_TYPES).filter(
+    (k) => k !== 'normal' && wave >= ENEMY_TYPES[k].minWave,
+  );
+}
+
+export function rollEnemyKind(wave) {
+  const specials = unlockedEnemyKinds(wave);
+  let total = ENEMY_TYPES.normal.weight;
+  for (const k of specials) total += ENEMY_TYPES[k].weight;
+  let r = Math.random() * total;
+  for (const k of specials) {
+    r -= ENEMY_TYPES[k].weight;
+    if (r < 0) return k;
+  }
+  return 'normal';
+}
+
+export function rollBossMod(wave) {
+  if (wave < BOSS_MODS_FROM) return 'normal';
+  const specials = unlockedEnemyKinds(wave);
+  return specials[Math.floor(Math.random() * specials.length)] ?? 'normal';
+}
+
+// Weapon evolutions: once a weapon's DMG+RATE levels add up to EVOLVE_LEVELS
+// its tab offers a one-time gold purchase — a visual change plus a mechanical
+// twist. Evolutions reset on rebirth: they are the long-term goal each tab
+// climbs toward within a run. Cost is baseCost * costMult.
+export const EVOLVE_LEVELS = 25;
+
+export const EVOLUTIONS = {
+  gun: {
+    name: 'TWIN GUN',
+    desc: 'fires a second bullet at another enemy',
+    costMult: 300,
+  },
+  mortar: {
+    name: 'CLUSTER MORTAR',
+    desc: 'shells burst into 3 mini-blasts',
+    costMult: 300,
+  },
+  drone: {
+    name: 'WASP',
+    desc: 'stings the two nearest enemies at once',
+    costMult: 300,
+  },
+  laser: {
+    name: 'PRISM LASER',
+    desc: 'beam splits to a second target at half power',
+    costMult: 300,
+  },
+  freezer: {
+    name: 'PERMAFROST',
+    desc: 'freeze zones also damage enemies inside',
+    costMult: 300,
+  },
+  sniper: {
+    name: 'RAILGUN',
+    desc: 'shots pierce everything in their path',
+    costMult: 300,
+  },
+};
+
+// Milestones: passive bonuses at lifetime-stat thresholds. All three stats
+// survive rebirth, so these give the numbers a memory across the whole save.
+// Bonuses are additive within each column (dmg / gold) and multiply into the
+// same global pipeline as core upgrades.
+export const MILESTONE_STATS = {
+  kills: 'KILLS',
+  bestWave: 'BEST WAVE',
+  goldEarned: 'GOLD EARNED',
+};
+
+export const MILESTONES = [
+  { stat: 'kills', at: 1e3, dmg: 0.05 },
+  { stat: 'kills', at: 1e4, dmg: 0.1 },
+  { stat: 'kills', at: 1e5, dmg: 0.15 },
+  { stat: 'kills', at: 1e6, dmg: 0.2 },
+  { stat: 'bestWave', at: 25, gold: 0.05 },
+  { stat: 'bestWave', at: 50, gold: 0.1 },
+  { stat: 'bestWave', at: 75, dmg: 0.1 },
+  { stat: 'bestWave', at: 100, gold: 0.15 },
+  { stat: 'bestWave', at: 150, dmg: 0.15 },
+  { stat: 'bestWave', at: 200, gold: 0.25 },
+  { stat: 'goldEarned', at: 5e4, gold: 0.05 },
+  { stat: 'goldEarned', at: 1e6, gold: 0.1 },
+  { stat: 'goldEarned', at: 1e8, gold: 0.2 },
+];
+
+export function milestoneText(m) {
+  const pct = Math.round((m.dmg ?? m.gold) * 100);
+  return {
+    req: `${fmt(m.at)} ${MILESTONE_STATS[m.stat]}`,
+    bonus: `+${pct}% ${m.dmg ? 'DMG' : 'GOLD'}`,
+  };
+}
+
+export function fmt(n) {
+  n = Math.floor(n);
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+  return String(n);
+}
+
 export const BOSS_EVERY = 10;
 
 export function waveConf(wave) {

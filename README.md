@@ -36,7 +36,21 @@ turrets.
   - **HEAD START** — extra starting gold after rebirth
   - **WAVE SKIP** — start later runs several waves in (max level 20)
   - OFFLINE portal levels also survive rebirth
-- Endless waves with scaling HP and gold; a multi-pixel **boss** every 10 waves
+- **Enemy variety** that unlocks with wave progress, so the best turret mix
+  keeps changing: **RUNNER** (wave 15+, fast and fragile), **TANK** (wave
+  25+, slow, 4× HP, pays more), **SPLITTER** (wave 35+, breaks into fast
+  minis on death) and **GHOST** (wave 50+, blinks out of phase —
+  untargetable — for part of every cycle)
+- **Weapon evolutions**: at 25 combined DMG+RATE levels each weapon offers a
+  one-time evolution with a new look and a twist — TWIN GUN, CLUSTER
+  MORTAR, WASP, PRISM LASER, PERMAFROST, RAILGUN (evolutions reset on
+  rebirth: they're the mid-run goal)
+- **Milestones** (the **FEATS** tab): passive +damage / +gold bonuses at
+  lifetime kills, best-wave and gold-earned thresholds — they survive
+  rebirth
+- Endless waves with scaling HP and gold; a multi-pixel **boss** every 10
+  waves — and from wave 60 bosses roll a modifier from the enemy pool
+  (splitting boss, blinking boss…)
 - Enemies that slip past the turret line loop back through the portal — a
   wave only ends once everything is killed
 - Save is stored in browser `localStorage`, with offline earnings

@@ -51,11 +51,20 @@ function drawZones(ctx, game, time) {
 
 function drawEnemies(ctx, game) {
   for (const e of game.enemies) {
+    const x = Math.round(e.x);
+    const y = Math.round(e.y);
+    // A phased ghost is just a dark outline — out of reach until it blinks
+    // back in.
+    if (e.phased) {
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      const r = e.boss ? 6 : 2;
+      ctx.strokeRect(x - r - 0.5, y - r - 0.5, r * 2 + 1, r * 2 + 1);
+      continue;
+    }
     const frac = Math.max(e.hp / e.maxHp, 0);
     const shade = e.hitFlash > 0 ? 255 : Math.round(110 + 145 * frac);
     ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
-    const x = Math.round(e.x);
-    const y = Math.round(e.y);
     if (e.boss) {
       // A boss is a cluster of pixels rather than a single one.
       for (let r = 0; r < BOSS_PATTERN.length; r++) {
@@ -65,6 +74,22 @@ function drawEnemies(ctx, game) {
           }
         }
       }
+    } else if (e.kind === 'runner' || e.kind === 'mini') {
+      ctx.fillRect(x - 1, y - 1, 2, 2);
+    } else if (e.kind === 'tank') {
+      ctx.fillRect(x - 2, y - 2, 5, 5);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, y, 1, 1);
+    } else if (e.kind === 'splitter') {
+      ctx.fillRect(x - 1, y - 1, 3, 3);
+      ctx.fillRect(x - 2, y - 2, 1, 1);
+      ctx.fillRect(x + 2, y - 2, 1, 1);
+      ctx.fillRect(x - 2, y + 2, 1, 1);
+      ctx.fillRect(x + 2, y + 2, 1, 1);
+    } else if (e.kind === 'ghost') {
+      ctx.fillRect(x - 1, y - 1, 3, 3);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, y, 1, 1);
     } else {
       ctx.fillRect(x - 1, y - 1, 3, 3);
     }
@@ -132,35 +157,51 @@ function drawTurrets(ctx, game) {
   for (const [t, p] of game.turretPos) {
     const x = p.x;
     const y = p.y;
+    const evolved = game.evolved(t.type);
     ctx.fillStyle = '#fff';
     if (t.type === 'gun') {
       ctx.fillRect(x - 2, y - 2, 5, 4);
       const a = t.angle ?? -Math.PI / 2;
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x + 0.5, y - 1.5);
-      ctx.lineTo(x + 0.5 + Math.cos(a) * 4, y - 1.5 + Math.sin(a) * 4);
-      ctx.stroke();
+      // TWIN GUN carries two barrels.
+      for (const off of evolved ? [-1, 2] : [0]) {
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5 + off, y - 1.5);
+        ctx.lineTo(x + 0.5 + off + Math.cos(a) * 4, y - 1.5 + Math.sin(a) * 4);
+        ctx.stroke();
+      }
     } else if (t.type === 'mortar') {
       ctx.fillRect(x - 3, y - 2, 7, 4);
       ctx.fillRect(x - 1, y - 4, 3, 2);
+      if (evolved) {
+        // CLUSTER: two extra side tubes.
+        ctx.fillRect(x - 3, y - 3, 1, 1);
+        ctx.fillRect(x + 3, y - 3, 1, 1);
+      }
     } else if (t.type === 'laser') {
       ctx.fillRect(x - 2, y - 2, 5, 4);
       ctx.fillRect(x, y - 5, 1, 3);
+      // PRISM: a wide splitting head.
+      if (evolved) ctx.fillRect(x - 1, y - 6, 3, 1);
     } else if (t.type === 'freezer') {
       ctx.fillRect(x - 3, y - 2, 7, 4);
       ctx.fillRect(x - 2, y - 5, 5, 3);
+      // PERMAFROST: a frost crest on the dome.
+      if (evolved) ctx.fillRect(x - 1, y - 6, 3, 1);
       ctx.fillStyle = '#000';
       ctx.fillRect(x - 1, y - 4, 3, 1);
     } else if (t.type === 'sniper') {
       ctx.fillRect(x - 2, y - 2, 5, 4);
-      ctx.fillRect(x, y - 8, 1, 6);
+      // RAILGUN: a longer, tipped barrel.
+      ctx.fillRect(x, y - (evolved ? 10 : 8), 1, evolved ? 8 : 6);
+      if (evolved) ctx.fillRect(x - 1, y - 10, 3, 1);
     }
   }
 }
 
 function drawDrones(ctx, game, time) {
+  const evolved = game.evolved('drone');
   for (const p of game.dronePos.values()) {
     const x = Math.round(p.x);
     const y = Math.round(p.y);
@@ -170,6 +211,11 @@ function drawDrones(ctx, game, time) {
     ctx.fillStyle = Math.floor(time * 10) % 2 ? '#888' : '#ccc';
     ctx.fillRect(x - 2, y - 2, 1, 1);
     ctx.fillRect(x + 1, y - 2, 1, 1);
+    if (evolved) {
+      // WASP: side wings.
+      ctx.fillRect(x - 2, y, 1, 1);
+      ctx.fillRect(x + 1, y, 1, 1);
+    }
   }
 }
 
