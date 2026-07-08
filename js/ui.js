@@ -1,4 +1,10 @@
-import { TURRET_TYPES, UPGRADE_TYPES, SPAWN_UPGRADES } from './config.js';
+import {
+  TURRET_TYPES,
+  UPGRADE_TYPES,
+  SPAWN_UPGRADES,
+  REBIRTH,
+  CORE_UPGRADES,
+} from './config.js';
 
 export function fmt(n) {
   n = Math.floor(n);
@@ -10,12 +16,14 @@ export function fmt(n) {
 
 const TAB_DESCS = {
   spawn: 'portal upgrades — levels unlock as you reach higher waves',
+  core: 'rebirth resets the run for cores — core upgrades are permanent',
 };
 
 export function buildUI(game) {
   const statGold = document.getElementById('stat-gold');
   const statWave = document.getElementById('stat-wave');
   const statKills = document.getElementById('stat-kills');
+  const statCores = document.getElementById('stat-cores');
   const tabsNav = document.getElementById('tabs');
   const tabDesc = document.getElementById('tab-desc');
   const content = document.getElementById('tab-content');
@@ -23,7 +31,7 @@ export function buildUI(game) {
   let active = 'gun';
   let updaters = []; // refresh callbacks for the buttons of the active tab
 
-  const tabIds = ['spawn', ...Object.keys(TURRET_TYPES)];
+  const tabIds = ['core', 'spawn', ...Object.keys(TURRET_TYPES)];
   const tabButtons = new Map();
   for (const id of tabIds) {
     const btn = document.createElement('button');
@@ -53,6 +61,40 @@ export function buildUI(game) {
   function rebuild() {
     content.replaceChildren();
     updaters = [];
+
+    if (active === 'core') {
+      tabDesc.textContent = TAB_DESCS.core;
+
+      const rb = makeButton(() => {
+        if (!game.canRebirth()) return false;
+        if (!confirm(`Rebirth for ${game.rebirthCores()} cores? Your run resets.`)) return false;
+        return game.rebirth();
+      });
+      rb.btn.classList.add('span-2');
+      rb.desc.textContent = 'keep cores, core upgrades & offline levels';
+      updaters.push(() => {
+        rb.label.textContent = 'REBIRTH';
+        rb.sub.textContent = game.canRebirth()
+          ? `+${fmt(game.rebirthCores())} CORES`
+          : `REACH WAVE ${REBIRTH.minWave}`;
+        rb.btn.disabled = !game.canRebirth();
+      });
+
+      for (const kind of Object.keys(CORE_UPGRADES)) {
+        const def = CORE_UPGRADES[kind];
+        const b = makeButton(() => game.buyCoreUpgrade(kind));
+        b.desc.textContent = def.desc;
+        updaters.push(() => {
+          const lvl = game.state.coreUpgrades[kind];
+          const maxed = def.maxLevel != null && lvl >= def.maxLevel;
+          const cost = game.coreUpgradeCost(kind);
+          b.label.textContent = `${def.name} LV${lvl}`;
+          b.sub.textContent = maxed ? 'MAX' : `${fmt(cost)} C`;
+          b.btn.disabled = maxed || game.state.cores < cost;
+        });
+      }
+      return;
+    }
 
     if (active === 'spawn') {
       tabDesc.textContent = TAB_DESCS.spawn;
@@ -109,9 +151,12 @@ export function buildUI(game) {
     statGold.textContent = fmt(s.gold);
     statWave.textContent = s.wave;
     statKills.textContent = fmt(s.kills);
+    statCores.textContent = fmt(s.cores);
 
     for (const [id, btn] of tabButtons) {
-      if (id === 'spawn') {
+      if (id === 'core') {
+        btn.textContent = 'CORE' + (s.cores ? `·${fmt(s.cores)}` : '');
+      } else if (id === 'spawn') {
         btn.textContent = 'SPAWN';
       } else {
         const owned = game.ownedCount(id);

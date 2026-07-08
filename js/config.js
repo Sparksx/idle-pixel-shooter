@@ -131,6 +131,50 @@ export const OFFLINE = {
   effPerLevel: 0.05,
 };
 
+// Prestige: from minWave on, the player can REBIRTH — the run (gold, wave,
+// turrets, turret upgrades, rate/gold/swarm portal levels) resets in exchange
+// for cores. OFFLINE portal levels and everything bought with cores persist.
+// The core payout grows superlinearly so pushing 10 more waves before
+// resetting is always visibly worth it.
+export const REBIRTH = {
+  minWave: 50,
+  cores: (wave) => Math.floor(Math.pow(wave / 10, 1.5)),
+};
+
+// Permanent upgrades bought with cores in the CORE tab. They survive rebirth;
+// start and skip only shape the *next* run.
+export const CORE_UPGRADES = {
+  dmg: {
+    name: 'CORE DMG',
+    desc: '+25% damage, all turrets',
+    baseCost: 1,
+    costGrowth: 1.6,
+    mult: 1.25,
+  },
+  gold: {
+    name: 'CORE GOLD',
+    desc: '+25% gold per kill',
+    baseCost: 1,
+    costGrowth: 1.6,
+    mult: 1.25,
+  },
+  start: {
+    name: 'HEAD START',
+    desc: '+150 gold after rebirth',
+    baseCost: 2,
+    costGrowth: 1.7,
+    amount: 150,
+  },
+  skip: {
+    name: 'WAVE SKIP',
+    desc: 'rebirth 2 waves further',
+    baseCost: 3,
+    costGrowth: 1.8,
+    amount: 2,
+    maxLevel: 20,
+  },
+};
+
 export const BOSS_EVERY = 10;
 
 export function waveConf(wave) {

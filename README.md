@@ -29,6 +29,13 @@ turrets.
 - Portal upgrade levels are gated by wave progression (e.g. one SWARM
   level per 10 waves reached), so the portal — and the difficulty it
   brings — evolves with your push instead of being bought up front
+- **Rebirth** (wave 50+, in the **CORE** tab): reset the run for
+  **cores** — the deeper the wave, the more cores. Spend them on
+  permanent upgrades that survive rebirth:
+  - **CORE DMG** / **CORE GOLD** — global damage / gold multipliers
+  - **HEAD START** — extra starting gold after rebirth
+  - **WAVE SKIP** — start later runs several waves in (max level 20)
+  - OFFLINE portal levels also survive rebirth
 - Endless waves with scaling HP and gold; a multi-pixel **boss** every 10 waves
 - Enemies that slip past the turret line loop back through the portal — a
   wave only ends once everything is killed

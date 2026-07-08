@@ -12,20 +12,21 @@ ordered by impact-per-effort and each one is shippable on its own.
 - **Wave-gated portal upgrades**: SPAWN tab levels unlock with wave progress
   (one level per N waves), so income multipliers and difficulty scale with
   progression instead of being front-loaded with farmed gold.
+- **Phase 1 — prestige / rebirth loop** (see below): shipped.
 
-## Phase 1 — Prestige / rebirth loop (biggest lifespan win)
+## Phase 1 — Prestige / rebirth loop ✅ done
 
-The core of every long-lived idle game: reset to multiply.
+The core of every long-lived idle game: reset to multiply. As shipped:
 
-- New **REBIRTH** action, unlocked at wave 50: resets gold, wave, turrets and
-  turret upgrades (portal upgrades under discussion — keeping OFFLINE levels
-  feels kinder).
-- Grants **cores** (prestige currency) based on the highest wave reached,
-  e.g. `floor((wave / 10)^1.5)` — pushing 10 waves further is always worth
-  visibly more cores.
-- Cores are spent in a new **CORE** tab on permanent multipliers that persist
-  through rebirths: global damage, gold, starting gold, base offline hours,
-  wave skip (start at wave N).
+- **REBIRTH** action in the new **CORE** tab, unlocked at wave 50. It resets
+  gold, wave, turrets, turret upgrades and the rate/gold/swarm portal levels;
+  OFFLINE portal levels persist (kinder), and so do cores, core upgrades and
+  lifetime kills.
+- Grants **cores** on reset: `floor((wave / 10)^1.5)` — wave 50 pays 11,
+  wave 100 pays 31; pushing 10 waves further is always visibly worth more.
+- Cores buy permanent upgrades in the CORE tab: **CORE DMG** and **CORE
+  GOLD** (+25%/level global multipliers), **HEAD START** (+150 starting gold
+  per level) and **WAVE SKIP** (start 2 waves further per level, max 20).
 - Each run gets shorter as core multipliers grow, which is the addictive part;
   the wave wall (HP × 1.16^wave) guarantees every run eventually stalls and
   makes rebirth the right move.
