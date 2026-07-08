@@ -24,6 +24,8 @@ turrets.
   - **SPAWN RATE** — enemies arrive faster
   - **GOLD BONUS** — more gold per kill
   - **SWARM SIZE** — more enemies per wave
+  - **WALL HP** — a tougher wall
+  - **WALL REPAIR** — the wall repairs itself faster
   - **OFFLINE GAIN** — better offline earnings (max level 10)
   - **OFFLINE TIME** — +1h offline earnings cap (max level 20)
 - Portal upgrade levels are gated by wave progression (e.g. one SWARM
@@ -51,8 +53,10 @@ turrets.
 - Endless waves with scaling HP and gold; a multi-pixel **boss** every 10
   waves — and from wave 60 bosses roll a modifier from the enemy pool
   (splitting boss, blinking boss…)
-- Enemies that slip past the turret line loop back through the portal — a
-  wave only ends once everything is killed
+- Enemies that reach the turret line latch onto the **wall** and bite it
+  every second — kill them before it breaks. The wall repairs itself once
+  the biting stops (and fully between waves); if it drops to 0 the field
+  clears and the run is pushed back 5 waves — a setback, never a game over
 - Save is stored in browser `localStorage`, with offline earnings
   (50–100% of your recent gold/sec, capped at 4 hours + 1 hour per
   OFFLINE TIME level) when you come back

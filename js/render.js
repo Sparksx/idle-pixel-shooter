@@ -8,6 +8,7 @@ export function render(ctx, game, time) {
   ctx.fillRect(0, 0, W, H);
 
   drawGround(ctx, game);
+  drawWall(ctx, game);
   drawPortal(ctx, time);
   drawZones(ctx, game, time);
   drawBlasts(ctx, game);
@@ -24,6 +25,16 @@ export function render(ctx, game, time) {
 function drawGround(ctx, game) {
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, TURRET_Y + 3, W, H - TURRET_Y - 3);
+}
+
+// The wall is its own HP bar: the bright span shrinks from the right as it
+// takes damage, and the whole strip flashes white on every bite.
+function drawWall(ctx, game) {
+  const frac = Math.max(game.state.wallHp / game.wallMaxHp(), 0);
+  ctx.fillStyle = '#333';
+  ctx.fillRect(0, TURRET_Y - 2, W, 2);
+  ctx.fillStyle = game.wallFlash > 0 ? '#fff' : frac > 0.3 ? '#aaa' : '#777';
+  ctx.fillRect(0, TURRET_Y - 2, Math.round(W * frac), 2);
 }
 
 function drawPortal(ctx, time) {
