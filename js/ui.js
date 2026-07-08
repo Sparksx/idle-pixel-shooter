@@ -7,6 +7,7 @@ import {
   EVOLUTIONS,
   EVOLVE_LEVELS,
   MILESTONES,
+  CHALLENGE,
   milestoneText,
   fmt,
 } from './config.js';
@@ -74,8 +75,57 @@ export function buildUI(game) {
         rb.label.textContent = 'REBIRTH';
         rb.sub.textContent = game.canRebirth()
           ? `+${fmt(game.rebirthCores())} CORES`
-          : `REACH WAVE ${REBIRTH.minWave}`;
+          : game.state.challenge
+            ? 'NOT DURING A CHALLENGE'
+            : `REACH WAVE ${REBIRTH.minWave}`;
         rb.btn.disabled = !game.canRebirth();
+      });
+
+      // Daily challenge: start today's seeded side-run, or abandon the one
+      // in progress. The main run is stashed and restored either way.
+      const daily = makeButton(() => {
+        if (game.state.challenge) {
+          if (!confirm('Abandon the daily challenge? No reward, your main run comes back.'))
+            return false;
+          return game.abandonChallenge();
+        }
+        if (!game.canStartChallenge()) return false;
+        const rule = game.todayRule();
+        if (
+          !confirm(
+            `Start the daily challenge? Rule: ${rule.name} (${rule.desc}). ` +
+              'Your main run is stashed and restored when the challenge ends.',
+          )
+        )
+          return false;
+        return game.startChallenge();
+      });
+      daily.btn.classList.add('span-2');
+      updaters.push(() => {
+        const s = game.state;
+        const rule = game.todayRule();
+        if (s.challenge) {
+          const active = game.challengeRule();
+          daily.label.textContent = 'ABANDON CHALLENGE';
+          daily.desc.textContent = `${active ? active.name + ' — ' : ''}clear wave ${s.challenge.target} for ${fmt(s.challenge.reward)} cores`;
+          daily.sub.textContent = `WAVE ${s.wave}/${s.challenge.target}`;
+          daily.btn.disabled = false;
+        } else if (!game.challengeUnlocked()) {
+          daily.label.textContent = 'DAILY CHALLENGE';
+          daily.desc.textContent = 'a fresh one-off run with a twist';
+          daily.sub.textContent = 'REBIRTH ONCE TO UNLOCK';
+          daily.btn.disabled = true;
+        } else if (game.dailyDoneToday()) {
+          daily.label.textContent = `DAILY: ${rule.name}`;
+          daily.desc.textContent = rule.desc;
+          daily.sub.textContent = 'DONE TODAY ✓';
+          daily.btn.disabled = true;
+        } else {
+          daily.label.textContent = `DAILY: ${rule.name}`;
+          daily.desc.textContent = `${rule.desc} — clear wave ${CHALLENGE.targetWave}`;
+          daily.sub.textContent = `+${fmt(game.challengeReward())} CORES`;
+          daily.btn.disabled = false;
+        }
       });
 
       for (const kind of Object.keys(CORE_UPGRADES)) {
@@ -156,9 +206,10 @@ export function buildUI(game) {
     updaters.push(() => {
       const owned = game.ownedCount(type);
       const cost = game.turretCost(type);
+      const banned = game.bannedType(type);
       buy.label.textContent = `+ BUY ${def.name}` + (owned ? ` (${owned})` : '');
-      buy.sub.textContent = `${fmt(cost)} G`;
-      buy.btn.disabled = game.state.gold < cost;
+      buy.sub.textContent = banned ? 'BANNED TODAY' : `${fmt(cost)} G`;
+      buy.btn.disabled = banned || game.state.gold < cost;
     });
 
     for (const kind of Object.keys(UPGRADE_TYPES)) {
@@ -212,8 +263,9 @@ export function buildUI(game) {
         btn.textContent = 'FEATS';
       } else {
         const owned = game.ownedCount(id);
-        btn.textContent =
-          TURRET_TYPES[id].name + (game.evolved(id) ? '★' : '') + (owned ? `·${owned}` : '');
+        btn.textContent = game.bannedType(id)
+          ? `${TURRET_TYPES[id].name}✕`
+          : TURRET_TYPES[id].name + (game.evolved(id) ? '★' : '') + (owned ? `·${owned}` : '');
       }
       btn.classList.toggle('active', id === active);
     }

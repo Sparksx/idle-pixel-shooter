@@ -12,7 +12,10 @@ import {
   EVOLUTIONS,
   EVOLVE_LEVELS,
   MILESTONES,
+  CHALLENGE,
   milestoneText,
+  dailyRule,
+  eliteConf,
   rollEnemyKind,
   rollBossMod,
   waveConf,
@@ -43,6 +46,8 @@ export class Game {
     this.pendingSpawns = [];
     this.wallFlash = 0; // runtime bite-flash visual
     this.wallHitT = WALL.regenDelay; // seconds since the wall was last bitten
+    this.banner = null; // short on-canvas announcement: {text, t}
+    this.announcedElite = 0; // wave number of the last announced elite wave
     // Old saves may carry more wall HP than the current max allows.
     this.state.wallHp = Math.min(this.state.wallHp, this.wallMaxHp());
     // Optional toast callback wired up by main.js.
@@ -142,8 +147,44 @@ export class Game {
     return (
       Math.pow(1.15, this.state.spawnUpgrades.gold) *
       this.coreGoldMult() *
-      this.milestoneGoldMult()
+      this.milestoneGoldMult() *
+      (this.challengeRule()?.goldMult ?? 1)
     );
+  }
+
+  // --- daily challenge -------------------------------------------------------
+
+  todayKey() {
+    return new Date().toISOString().slice(0, 10); // UTC daily rollover
+  }
+
+  todayRule() {
+    return dailyRule(this.todayKey());
+  }
+
+  challengeRule() {
+    const c = this.state.challenge;
+    return c ? (CHALLENGE.rules.find((r) => r.id === c.rule) ?? null) : null;
+  }
+
+  bannedType(type) {
+    return this.challengeRule()?.ban === type;
+  }
+
+  challengeUnlocked() {
+    return this.state.rebirths >= CHALLENGE.unlockRebirths;
+  }
+
+  dailyDoneToday() {
+    return this.state.dailyDone === this.todayKey();
+  }
+
+  challengeReward() {
+    return CHALLENGE.baseReward + Math.floor(REBIRTH.cores(this.state.bestWave) / 2);
+  }
+
+  canStartChallenge() {
+    return this.challengeUnlocked() && !this.state.challenge && !this.dailyDoneToday();
   }
 
   coreUpgradeCost(kind) {
@@ -157,7 +198,8 @@ export class Game {
   }
 
   wallMaxHp() {
-    return WALL.maxHp + SPAWN_UPGRADES.wallHp.amount * this.state.spawnUpgrades.wallHp;
+    const base = WALL.maxHp + SPAWN_UPGRADES.wallHp.amount * this.state.spawnUpgrades.wallHp;
+    return Math.round(base * (this.challengeRule()?.wallMult ?? 1));
   }
 
   wallRepairRate() {
@@ -173,6 +215,7 @@ export class Game {
   // --- player actions ------------------------------------------------------
 
   buyTurret(type) {
+    if (this.bannedType(type)) return false;
     const cost = this.turretCost(type);
     if (this.state.gold < cost) return false;
     this.state.gold -= cost;
@@ -221,7 +264,7 @@ export class Game {
   }
 
   canRebirth() {
-    return this.state.wave >= REBIRTH.minWave;
+    return this.state.wave >= REBIRTH.minWave && !this.state.challenge;
   }
 
   rebirthCores() {
@@ -249,6 +292,11 @@ export class Game {
     s.spawnUpgrades.repair = 0;
     s.wallHp = this.wallMaxHp();
     s.goldPerSec = 0; // the new run earns nothing yet — don't inflate offline gains
+    this.resetFieldState();
+    return true;
+  }
+
+  resetFieldState() {
     this.clearField();
     this.cd.clear();
     this.dronePos.clear();
@@ -256,7 +304,76 @@ export class Game {
     this.spawnTimer = 1;
     this.goldEarnedWindow = 0;
     this.windowTime = 0;
+    this.wallHitT = WALL.regenDelay;
+    this.announcedElite = 0;
+  }
+
+  // Everything a run owns; stashed while a daily challenge is active.
+  runSnapshot() {
+    const s = this.state;
+    return {
+      gold: s.gold,
+      wave: s.wave,
+      turrets: s.turrets,
+      upgrades: s.upgrades,
+      evolved: s.evolved,
+      spawnUpgrades: { ...s.spawnUpgrades },
+      wallHp: s.wallHp,
+      goldPerSec: s.goldPerSec,
+    };
+  }
+
+  // Stash the main run and start today's seeded side-run: a fresh wave-1 run
+  // (permanent core/milestone bonuses still apply) under the day's rule.
+  startChallenge() {
+    if (!this.canStartChallenge()) return false;
+    const s = this.state;
+    const rule = this.todayRule();
+    s.stashedRun = this.runSnapshot();
+    s.challenge = {
+      date: this.todayKey(),
+      rule: rule.id,
+      target: CHALLENGE.targetWave,
+      reward: this.challengeReward(),
+    };
+    s.gold = 30;
+    s.wave = 1;
+    s.turrets = [{ type: 'gun' }];
+    s.upgrades = Object.fromEntries(
+      Object.keys(TURRET_TYPES).map((t) => [t, { dmg: 0, rate: 0 }]),
+    );
+    s.evolved = Object.fromEntries(Object.keys(TURRET_TYPES).map((t) => [t, false]));
+    s.spawnUpgrades = { ...s.spawnUpgrades, rate: 0, gold: 0, swarm: 0, wallHp: 0, repair: 0 };
+    s.goldPerSec = 0;
+    s.wallHp = this.wallMaxHp(); // after the rule is set, so BRITTLE WALL bites
+    this.resetFieldState();
+    this.toast?.(`DAILY: ${rule.name} — CLEAR WAVE ${s.challenge.target} FOR ${s.challenge.reward} CORES`);
+    this.banner = { text: `DAILY: ${rule.name}`, t: 3 };
     return true;
+  }
+
+  // Leave the challenge and put the main run back exactly as stashed.
+  // On success the reward lands first and the day is marked done.
+  endChallenge(success) {
+    const s = this.state;
+    if (!s.challenge) return false;
+    if (success) {
+      s.cores += s.challenge.reward;
+      s.dailyDone = s.challenge.date;
+      this.toast?.(`CHALLENGE COMPLETE — +${s.challenge.reward} CORES`);
+      this.banner = { text: 'CHALLENGE COMPLETE', t: 3 };
+    }
+    const snap = s.stashedRun;
+    s.challenge = null;
+    s.stashedRun = null;
+    if (snap) Object.assign(s, snap);
+    s.wallHp = Math.min(s.wallHp, this.wallMaxHp());
+    this.resetFieldState();
+    return true;
+  }
+
+  abandonChallenge() {
+    return this.endChallenge(false);
   }
 
   // --- simulation ----------------------------------------------------------
@@ -280,6 +397,7 @@ export class Game {
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.trackGoldRate(dt);
     this.checkMilestones();
+    if (this.banner && (this.banner.t -= dt) <= 0) this.banner = null;
   }
 
   // Ground turrets have no slots: they are spread evenly along the turret
@@ -301,6 +419,7 @@ export class Game {
   updateWave(dt) {
     const conf = waveConf(this.state.wave);
     const count = this.waveCount(conf);
+    this.announceElite();
     if (this.waveSpawned < count) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
@@ -310,12 +429,31 @@ export class Game {
       }
     } else if (this.enemies.length === 0) {
       this.state.wave++;
-      if (this.state.wave > this.state.bestWave) this.state.bestWave = this.state.wave;
+      const c = this.state.challenge;
+      if (c && this.state.wave > c.target) {
+        this.endChallenge(true);
+        return;
+      }
+      // Challenge waves don't count toward BEST WAVE — that stat is the
+      // main run's push.
+      if (!c && this.state.wave > this.state.bestWave) this.state.bestWave = this.state.wave;
       this.waveSpawned = 0;
       this.spawnTimer = 1;
       // Surviving a wave leaves time to patch every crack.
       this.state.wallHp = this.wallMaxHp();
     }
+  }
+
+  // Announce an elite wave once, on screen, before its first spawn (and on
+  // reload mid-wave). announcedElite resets whenever the wave counter jumps
+  // back, so the same wave number can announce again next run.
+  announceElite() {
+    const elite = eliteConf(this.state.wave);
+    if (!elite || this.announcedElite === this.state.wave) return;
+    this.announcedElite = this.state.wave;
+    this.toast?.(`ELITE WAVE ${this.state.wave}: ${elite.name} — ${elite.desc}`);
+    this.banner = { text: `ELITE: ${elite.name}`, t: 3 };
+    if (this.waveSpawned === 0) this.spawnTimer = Math.max(this.spawnTimer, 2);
   }
 
   marchVelocity(speed) {
@@ -328,12 +466,16 @@ export class Game {
 
   // Non-boss spawns roll a kind from the wave's unlocked pool; bosses roll a
   // modifier from the same pool at high waves. Kind multipliers stack on top
-  // of the wave's base numbers.
+  // of the wave's base numbers, and elite-wave / challenge-rule modifiers on
+  // top of those.
   spawnEnemy(conf) {
-    const kind = conf.boss ? rollBossMod(this.state.wave) : rollEnemyKind(this.state.wave);
+    const rule = this.challengeRule();
+    let kind = conf.boss ? rollBossMod(this.state.wave) : rollEnemyKind(this.state.wave);
+    if (!conf.boss && rule?.forceKind) kind = rule.forceKind;
+    const elite = eliteConf(this.state.wave);
     const k = ENEMY_TYPES[kind];
-    const speed = conf.speed * (k.speed ?? 1);
-    const hp = conf.hp * (k.hp ?? 1);
+    const speed = conf.speed * (k.speed ?? 1) * (elite?.speed ?? 1);
+    const hp = conf.hp * (k.hp ?? 1) * (elite?.hp ?? 1);
     const e = {
       kind,
       x: SPAWN.x + (Math.random() * 10 - 5),
@@ -342,12 +484,13 @@ export class Game {
       speed,
       hp,
       maxHp: hp,
-      gold: conf.gold * (k.gold ?? 1) * this.goldMult(),
+      gold: conf.gold * (k.gold ?? 1) * (elite?.gold ?? 1) * this.goldMult(),
       boss: conf.boss,
       hitFlash: 0,
       slow: 1,
       dead: false,
     };
+    if (elite?.regen) e.regen = elite.regen;
     if (k.blink) e.blinkT = Math.random() * (k.blink.visible + k.blink.hidden);
     this.enemies.push(e);
     this.announceKind(kind);
@@ -384,6 +527,11 @@ export class Game {
       e.x += e.vx * dt * e.slow;
       e.y += e.vy * dt * e.slow;
       e.hitFlash = Math.max(e.hitFlash - dt, 0);
+      // REGEN elites heal a fraction of max hp per second — burst damage
+      // beats them, chip damage doesn't.
+      if (e.regen && !e.dead && e.hp < e.maxHp) {
+        e.hp = Math.min(e.hp + e.maxHp * e.regen * dt, e.maxHp);
+      }
       // Reached the wall: the enemy latches on and starts biting (see
       // updateWall). It stays targetable — and being closest to the turret
       // line, nearest-enemy weapons naturally focus the biters first.
@@ -428,8 +576,10 @@ export class Game {
   // oscillates around the wave it can hold instead of dying.
   breach() {
     const s = this.state;
-    const startWave = 1 + CORE_UPGRADES.skip.amount * s.coreUpgrades.skip;
+    // WAVE SKIP never cushions a challenge run — those always start at 1.
+    const startWave = s.challenge ? 1 : 1 + CORE_UPGRADES.skip.amount * s.coreUpgrades.skip;
     s.wave = Math.max(s.wave - WALL.setback, Math.min(startWave, s.wave), 1);
+    this.announcedElite = 0;
     this.clearField();
     this.waveSpawned = 0;
     this.spawnTimer = 2; // a breather while the wall goes back up
