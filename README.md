@@ -25,11 +25,23 @@ turrets.
   - **GOLD BONUS** — more gold per kill
   - **SWARM SIZE** — more enemies per wave
   - **OFFLINE GAIN** — better offline earnings (max level 10)
+  - **OFFLINE TIME** — +1h offline earnings cap (max level 20)
+- Portal upgrade levels are gated by wave progression (e.g. one SWARM
+  level per 10 waves reached), so the portal — and the difficulty it
+  brings — evolves with your push instead of being bought up front
+- **Rebirth** (wave 50+, in the **CORE** tab): reset the run for
+  **cores** — the deeper the wave, the more cores. Spend them on
+  permanent upgrades that survive rebirth:
+  - **CORE DMG** / **CORE GOLD** — global damage / gold multipliers
+  - **HEAD START** — extra starting gold after rebirth
+  - **WAVE SKIP** — start later runs several waves in (max level 20)
+  - OFFLINE portal levels also survive rebirth
 - Endless waves with scaling HP and gold; a multi-pixel **boss** every 10 waves
 - Enemies that slip past the turret line loop back through the portal — a
   wave only ends once everything is killed
 - Save is stored in browser `localStorage`, with offline earnings
-  (50–100% of your recent gold/sec, capped at 8 hours) when you come back
+  (50–100% of your recent gold/sec, capped at 4 hours + 1 hour per
+  OFFLINE TIME level) when you come back
 - Works on desktop and mobile — pure HTML/CSS/JS, no build step, no backend
 
 ## Run locally
@@ -62,8 +74,8 @@ js/main.js      bootstrap, game loop, offline gains
 
 ## Ideas for later
 
-- More turret types and per-turret (instead of per-type) upgrades
-- Prestige / rebirth loop
-- Enemy variety (fast, tanky, splitting pixels)
+See [ROADMAP.md](ROADMAP.md) for the plan to extend the game's lifespan
+(prestige loop, enemy variety, weapon evolutions, milestones…).
+
 - Sound, particles, screen shake
 - Cloud saves (would need a backend)

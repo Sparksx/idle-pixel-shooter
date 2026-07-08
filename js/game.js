@@ -5,6 +5,8 @@ import {
   TURRET_TYPES,
   UPGRADE_TYPES,
   SPAWN_UPGRADES,
+  REBIRTH,
+  CORE_UPGRADES,
   waveConf,
 } from './config.js';
 
@@ -34,9 +36,17 @@ export class Game {
     const def = TURRET_TYPES[type];
     const up = this.state.upgrades[type];
     return {
-      dmg: def.dmg * Math.pow(UPGRADE_TYPES.dmg.mult, up.dmg),
+      dmg: def.dmg * Math.pow(UPGRADE_TYPES.dmg.mult, up.dmg) * this.coreDmgMult(),
       rate: def.rate * Math.pow(UPGRADE_TYPES.rate.mult, up.rate),
     };
+  }
+
+  coreDmgMult() {
+    return Math.pow(CORE_UPGRADES.dmg.mult, this.state.coreUpgrades.dmg);
+  }
+
+  coreGoldMult() {
+    return Math.pow(CORE_UPGRADES.gold.mult, this.state.coreUpgrades.gold);
   }
 
   turretCost(type) {
@@ -56,6 +66,14 @@ export class Game {
     return Math.round(def.baseCost * Math.pow(def.costGrowth, lvl));
   }
 
+  // Highest level currently purchasable: capped by the def's maxLevel and by
+  // wave progression (one level per wavePerLevel waves reached).
+  spawnUpgradeMaxLevel(kind) {
+    const def = SPAWN_UPGRADES[kind];
+    const byWave = Math.floor(this.state.wave / def.wavePerLevel);
+    return def.maxLevel != null ? Math.min(def.maxLevel, byWave) : byWave;
+  }
+
   ownedCount(type) {
     return this.state.turrets.filter((t) => t.type === type).length;
   }
@@ -65,7 +83,12 @@ export class Game {
   }
 
   goldMult() {
-    return Math.pow(1.15, this.state.spawnUpgrades.gold);
+    return Math.pow(1.15, this.state.spawnUpgrades.gold) * this.coreGoldMult();
+  }
+
+  coreUpgradeCost(kind) {
+    const def = CORE_UPGRADES[kind];
+    return Math.round(def.baseCost * Math.pow(def.costGrowth, this.state.coreUpgrades[kind]));
   }
 
   waveCount(conf) {
@@ -92,13 +115,63 @@ export class Game {
   }
 
   buySpawnUpgrade(kind) {
-    const def = SPAWN_UPGRADES[kind];
     const lvl = this.state.spawnUpgrades[kind];
-    if (def.maxLevel != null && lvl >= def.maxLevel) return false;
+    if (lvl >= this.spawnUpgradeMaxLevel(kind)) return false;
     const cost = this.spawnUpgradeCost(kind);
     if (this.state.gold < cost) return false;
     this.state.gold -= cost;
     this.state.spawnUpgrades[kind]++;
+    return true;
+  }
+
+  buyCoreUpgrade(kind) {
+    const def = CORE_UPGRADES[kind];
+    const lvl = this.state.coreUpgrades[kind];
+    if (def.maxLevel != null && lvl >= def.maxLevel) return false;
+    const cost = this.coreUpgradeCost(kind);
+    if (this.state.cores < cost) return false;
+    this.state.cores -= cost;
+    this.state.coreUpgrades[kind]++;
+    return true;
+  }
+
+  canRebirth() {
+    return this.state.wave >= REBIRTH.minWave;
+  }
+
+  rebirthCores() {
+    return REBIRTH.cores(this.state.wave);
+  }
+
+  // Cash the run in for cores and start over. Cores, core upgrades, OFFLINE
+  // portal levels and lifetime kills persist; everything else resets.
+  rebirth() {
+    if (!this.canRebirth()) return false;
+    const s = this.state;
+    s.cores += this.rebirthCores();
+    s.rebirths++;
+    s.gold = 30 + CORE_UPGRADES.start.amount * s.coreUpgrades.start;
+    s.wave = 1 + CORE_UPGRADES.skip.amount * s.coreUpgrades.skip;
+    s.turrets = [{ type: 'gun' }];
+    s.upgrades = Object.fromEntries(
+      Object.keys(TURRET_TYPES).map((t) => [t, { dmg: 0, rate: 0 }]),
+    );
+    s.spawnUpgrades.rate = 0;
+    s.spawnUpgrades.gold = 0;
+    s.spawnUpgrades.swarm = 0;
+    s.goldPerSec = 0; // the new run earns nothing yet — don't inflate offline gains
+    this.enemies.length = 0;
+    this.bullets.length = 0;
+    this.shells.length = 0;
+    this.blasts.length = 0;
+    this.zones.length = 0;
+    this.tracers.length = 0;
+    this.cd.clear();
+    this.dronePos.clear();
+    this.waveSpawned = 0;
+    this.spawnTimer = 1;
+    this.goldEarnedWindow = 0;
+    this.windowTime = 0;
     return true;
   }
 

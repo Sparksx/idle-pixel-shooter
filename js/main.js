@@ -1,3 +1,4 @@
+import { OFFLINE } from './config.js';
 import { Game } from './game.js';
 import { render } from './render.js';
 import { load, save, wipe } from './save.js';
@@ -23,16 +24,19 @@ function toast(msg) {
 }
 
 // While the tab is closed or hidden the sim doesn't run; instead we grant
-// gold based on the recent earn rate, capped at 8 hours. Base efficiency is
-// 50%; each OFFLINE GAIN level adds 5%, up to 100%.
+// gold based on the recent earn rate, capped at 4 hours (+1h per OFFLINE
+// TIME level). Base efficiency is 50%; each OFFLINE GAIN level adds 5%,
+// up to 100%.
 function applyOfflineGains() {
   const away = (Date.now() - state.lastSeen) / 1000;
   if (away > 60 && state.goldPerSec > 0) {
-    const eff = Math.min(0.5 + 0.05 * state.spawnUpgrades.offline, 1);
-    const gain = Math.floor(state.goldPerSec * Math.min(away, 8 * 3600) * eff);
+    const eff = Math.min(OFFLINE.baseEff + OFFLINE.effPerLevel * state.spawnUpgrades.offline, 1);
+    const capHours = OFFLINE.baseHours + OFFLINE.hoursPerLevel * state.spawnUpgrades.offlineTime;
+    const gain = Math.floor(state.goldPerSec * Math.min(away, capHours * 3600) * eff);
     if (gain > 0) {
       state.gold += gain;
-      toast(`WHILE AWAY: +${gain} GOLD`);
+      const capped = away > capHours * 3600;
+      toast(`WHILE AWAY: +${gain} GOLD` + (capped ? ` (${capHours}H CAP)` : ''));
     }
   }
   state.lastSeen = Date.now();
