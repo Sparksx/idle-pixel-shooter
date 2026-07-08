@@ -13,6 +13,8 @@ ordered by impact-per-effort and each one is shippable on its own.
   (one level per N waves), so income multipliers and difficulty scale with
   progression instead of being front-loaded with farmed gold.
 - **Phase 1 — prestige / rebirth loop** (see below): shipped.
+- **Phase 2 — enemy variety** (see below): shipped.
+- **Phase 3 — weapon evolutions & milestones** (see below): shipped.
 
 ## Phase 1 — Prestige / rebirth loop ✅ done
 
@@ -31,33 +33,39 @@ The core of every long-lived idle game: reset to multiply. As shipped:
   the wave wall (HP × 1.16^wave) guarantees every run eventually stalls and
   makes rebirth the right move.
 
-## Phase 2 — Enemy variety (makes weapon choice matter)
+## Phase 2 — Enemy variety ✅ done
 
-Right now every enemy is the same pixel with bigger numbers, so the optimal
-turret mix never changes. Introduce types, unlocked progressively so each
-bracket of waves feels new:
+Every non-boss spawn now rolls a type from the pool unlocked by wave, so
+each bracket of waves changes the optimal turret mix. As shipped
+(`ENEMY_TYPES` in config):
 
-- **RUNNER** (wave 15+) — 2× speed, 0.5× HP; favours GUN/DRONE/FREEZER.
-- **TANK** (wave 25+) — 0.5× speed, 4× HP, more gold; favours SNIPER/MORTAR.
-- **SPLITTER** (wave 35+) — splits into 2–3 small pixels on death; favours
-  splash damage.
-- **GHOST** (wave 50+) — periodically blinks (untargetable); punishes
-  slow-rate turrets, favours LASER's continuous beam.
-- Bosses gain modifiers from the same pool at higher waves (splitting boss,
-  blinking boss…).
+- **RUNNER** (wave 15+) — 2× speed, 0.5× HP, 1.2× gold; favours
+  GUN/DRONE/FREEZER.
+- **TANK** (wave 25+) — 0.5× speed, 4× HP, 2.5× gold; favours SNIPER/MORTAR.
+- **SPLITTER** (wave 35+) — breaks into 2–3 faster minis on death, each
+  carrying a share of hp and gold; favours splash damage.
+- **GHOST** (wave 50+) — blinks out of phase for 1s of every 3.2s cycle
+  (untargetable and immune while phased); punishes slow-rate turrets,
+  favours LASER's continuous beam.
+- From wave 60, every **boss** rolls a modifier from the same pool: runner,
+  tank, splitting or blinking boss.
+- A toast introduces each type the first time it spawns; each type has its
+  own pixel shape so the mix is readable at a glance.
 
-Each type is just a spawn-table entry in `waveConf` plus a small behaviour
-hook in `updateEnemies` — no new systems needed.
+## Phase 3 — Weapon evolutions & milestones ✅ done
 
-## Phase 3 — Weapon evolutions & milestones (mid-run goals)
-
-- **Evolutions**: at DMG+RATE level thresholds (e.g. 25 combined), a weapon
-  tab offers a one-time evolution with a visual change and a twist: GUN →
-  TWIN GUN (two bullets), MORTAR → CLUSTER (3 mini-blasts), LASER → PRISM
-  (splits to 2 targets), etc. Gives each tab a long-term goal beyond +25%.
-- **Milestones**: passive bonuses at kill/wave/gold thresholds shown in a
-  small list (e.g. "10k kills: +5% damage forever"). Cheap to build, gives
-  the numbers a memory across the whole save.
+- **Evolutions**: once a weapon's DMG+RATE levels reach 25 combined, its tab
+  offers a one-time gold purchase (300× the weapon's base cost) with a
+  visual change and a twist. Evolutions reset on rebirth — they are the
+  mid-run goal. As shipped: GUN → **TWIN GUN** (second bullet at another
+  enemy), MORTAR → **CLUSTER** (3 scattered mini-blasts), DRONE → **WASP**
+  (stings two enemies at once), LASER → **PRISM** (beam splits to a second
+  target at half power), FREEZER → **PERMAFROST** (zones also deal damage
+  per second), SNIPER → **RAILGUN** (shots pierce everything in their path).
+- **Milestones**: 13 passive bonuses at lifetime kills / best wave / gold
+  earned thresholds, listed in the new **FEATS** tab with progress shown.
+  All three stats survive rebirth, so the bonuses (+5%…+25% damage or gold,
+  additive per column) give the numbers a memory across the whole save.
 
 ## Phase 4 — Wave texture & challenges (variety per session)
 

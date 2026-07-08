@@ -4,19 +4,17 @@ import {
   SPAWN_UPGRADES,
   REBIRTH,
   CORE_UPGRADES,
+  EVOLUTIONS,
+  EVOLVE_LEVELS,
+  MILESTONES,
+  milestoneText,
+  fmt,
 } from './config.js';
-
-export function fmt(n) {
-  n = Math.floor(n);
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
-  return String(n);
-}
 
 const TAB_DESCS = {
   spawn: 'portal upgrades — levels unlock as you reach higher waves',
   core: 'rebirth resets the run for cores — core upgrades are permanent',
+  feats: 'lifetime milestones — the bonuses survive rebirth',
 };
 
 export function buildUI(game) {
@@ -31,7 +29,7 @@ export function buildUI(game) {
   let active = 'gun';
   let updaters = []; // refresh callbacks for the buttons of the active tab
 
-  const tabIds = ['core', 'spawn', ...Object.keys(TURRET_TYPES)];
+  const tabIds = ['core', 'spawn', ...Object.keys(TURRET_TYPES), 'feats'];
   const tabButtons = new Map();
   for (const id of tabIds) {
     const btn = document.createElement('button');
@@ -96,6 +94,36 @@ export function buildUI(game) {
       return;
     }
 
+    if (active === 'feats') {
+      tabDesc.textContent = TAB_DESCS.feats;
+
+      const total = document.createElement('div');
+      total.className = 'milestone total span-2';
+      content.append(total);
+      updaters.push(() => {
+        const dmg = Math.round((game.milestoneDmgMult() - 1) * 100);
+        const gold = Math.round((game.milestoneGoldMult() - 1) * 100);
+        total.textContent = `EARNED: +${dmg}% DMG, +${gold}% GOLD`;
+      });
+
+      for (const m of MILESTONES) {
+        const el = document.createElement('div');
+        el.className = 'milestone';
+        const bonus = document.createElement('b');
+        const req = document.createElement('small');
+        el.append(bonus, req);
+        content.append(el);
+        const text = milestoneText(m);
+        bonus.textContent = text.bonus;
+        updaters.push(() => {
+          const done = game.milestoneDone(m);
+          el.classList.toggle('done', done);
+          req.textContent = done ? `${text.req} ✓` : `${fmt(game.state[m.stat])} / ${text.req}`;
+        });
+      }
+      return;
+    }
+
     if (active === 'spawn') {
       tabDesc.textContent = TAB_DESCS.spawn;
       for (const kind of Object.keys(SPAWN_UPGRADES)) {
@@ -144,6 +172,28 @@ export function buildUI(game) {
         b.btn.disabled = owned === 0 || game.state.gold < cost;
       });
     }
+
+    // One-time evolution, unlocked by combined DMG+RATE levels.
+    const evoDef = EVOLUTIONS[type];
+    const evo = makeButton(() => game.buyEvolution(type));
+    evo.btn.classList.add('span-2');
+    evo.desc.textContent = evoDef.desc;
+    updaters.push(() => {
+      const done = game.evolved(type);
+      const lvls = game.evolveLevels(type);
+      const cost = game.evolveCost(type);
+      evo.label.textContent = done ? `★ ${evoDef.name}` : `EVOLVE: ${evoDef.name}`;
+      if (done) {
+        evo.sub.textContent = 'EVOLVED';
+        evo.btn.disabled = true;
+      } else if (lvls < EVOLVE_LEVELS) {
+        evo.sub.textContent = `DMG+RATE LV ${lvls}/${EVOLVE_LEVELS}`;
+        evo.btn.disabled = true;
+      } else {
+        evo.sub.textContent = `${fmt(cost)} G`;
+        evo.btn.disabled = game.ownedCount(type) === 0 || game.state.gold < cost;
+      }
+    });
   }
 
   function refresh() {
@@ -158,9 +208,12 @@ export function buildUI(game) {
         btn.textContent = 'CORE' + (s.cores ? `·${fmt(s.cores)}` : '');
       } else if (id === 'spawn') {
         btn.textContent = 'SPAWN';
+      } else if (id === 'feats') {
+        btn.textContent = 'FEATS';
       } else {
         const owned = game.ownedCount(id);
-        btn.textContent = TURRET_TYPES[id].name + (owned ? `·${owned}` : '');
+        btn.textContent =
+          TURRET_TYPES[id].name + (game.evolved(id) ? '★' : '') + (owned ? `·${owned}` : '');
       }
       btn.classList.toggle('active', id === active);
     }

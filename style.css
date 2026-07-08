@@ -129,6 +129,32 @@ button .desc:empty { display: none; }
 
 button:active:not(:disabled) .desc { color: #333; }
 
+.milestone {
+  border: 1px solid #333;
+  padding: 8px 4px;
+  font-size: 11px;
+  text-align: center;
+  color: #555;
+}
+
+.milestone small {
+  display: block;
+  font-size: 9px;
+  margin-top: 3px;
+}
+
+.milestone.done {
+  border-color: #fff;
+  color: #fff;
+}
+
+.milestone.done small { color: #999; }
+
+.milestone.total {
+  border-style: dashed;
+  color: #999;
+}
+
 footer {
   display: flex;
   justify-content: space-between;

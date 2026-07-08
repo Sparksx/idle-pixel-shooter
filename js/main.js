@@ -10,6 +10,7 @@ ctx.imageSmoothingEnabled = false;
 
 const state = load();
 const game = new Game(state);
+game.toast = (msg) => toast(msg);
 const ui = buildUI(game);
 
 let toastTimeout;
@@ -35,6 +36,7 @@ function applyOfflineGains() {
     const gain = Math.floor(state.goldPerSec * Math.min(away, capHours * 3600) * eff);
     if (gain > 0) {
       state.gold += gain;
+      state.goldEarned += gain;
       const capped = away > capHours * 3600;
       toast(`WHILE AWAY: +${gain} GOLD` + (capped ? ` (${capHours}H CAP)` : ''));
     }

@@ -7,8 +7,17 @@ import {
   SPAWN_UPGRADES,
   REBIRTH,
   CORE_UPGRADES,
+  ENEMY_TYPES,
+  EVOLUTIONS,
+  EVOLVE_LEVELS,
+  MILESTONES,
+  milestoneText,
+  rollEnemyKind,
+  rollBossMod,
   waveConf,
 } from './config.js';
+
+const milestoneKey = (m) => `${m.stat}:${m.at}`;
 
 export class Game {
   constructor(state) {
@@ -28,6 +37,15 @@ export class Game {
     // Rolling gold/sec estimate, used for offline earnings.
     this.goldEarnedWindow = 0;
     this.windowTime = 0;
+    // Splitter children are buffered here and flushed at the end of update()
+    // so a splash blast can't chain-kill minis the same frame they appear.
+    this.pendingSpawns = [];
+    // Optional toast callback wired up by main.js.
+    this.toast = null;
+    // Milestones already reached at load don't get re-announced.
+    this.announced = new Set(
+      MILESTONES.filter((m) => this.milestoneDone(m)).map(milestoneKey),
+    );
   }
 
   // --- derived numbers -----------------------------------------------------
@@ -36,9 +54,42 @@ export class Game {
     const def = TURRET_TYPES[type];
     const up = this.state.upgrades[type];
     return {
-      dmg: def.dmg * Math.pow(UPGRADE_TYPES.dmg.mult, up.dmg) * this.coreDmgMult(),
+      dmg:
+        def.dmg *
+        Math.pow(UPGRADE_TYPES.dmg.mult, up.dmg) *
+        this.coreDmgMult() *
+        this.milestoneDmgMult(),
       rate: def.rate * Math.pow(UPGRADE_TYPES.rate.mult, up.rate),
     };
+  }
+
+  milestoneDone(m) {
+    return this.state[m.stat] >= m.at;
+  }
+
+  milestoneDmgMult() {
+    let b = 1;
+    for (const m of MILESTONES) if (m.dmg && this.milestoneDone(m)) b += m.dmg;
+    return b;
+  }
+
+  milestoneGoldMult() {
+    let b = 1;
+    for (const m of MILESTONES) if (m.gold && this.milestoneDone(m)) b += m.gold;
+    return b;
+  }
+
+  evolveLevels(type) {
+    const up = this.state.upgrades[type];
+    return up.dmg + up.rate;
+  }
+
+  evolveCost(type) {
+    return Math.round(TURRET_TYPES[type].baseCost * EVOLUTIONS[type].costMult);
+  }
+
+  evolved(type) {
+    return !!this.state.evolved[type];
   }
 
   coreDmgMult() {
@@ -83,7 +134,11 @@ export class Game {
   }
 
   goldMult() {
-    return Math.pow(1.15, this.state.spawnUpgrades.gold) * this.coreGoldMult();
+    return (
+      Math.pow(1.15, this.state.spawnUpgrades.gold) *
+      this.coreGoldMult() *
+      this.milestoneGoldMult()
+    );
   }
 
   coreUpgradeCost(kind) {
@@ -124,6 +179,17 @@ export class Game {
     return true;
   }
 
+  buyEvolution(type) {
+    if (this.evolved(type) || this.ownedCount(type) === 0) return false;
+    if (this.evolveLevels(type) < EVOLVE_LEVELS) return false;
+    const cost = this.evolveCost(type);
+    if (this.state.gold < cost) return false;
+    this.state.gold -= cost;
+    this.state.evolved[type] = true;
+    this.toast?.(`${TURRET_TYPES[type].name} EVOLVED: ${EVOLUTIONS[type].name}`);
+    return true;
+  }
+
   buyCoreUpgrade(kind) {
     const def = CORE_UPGRADES[kind];
     const lvl = this.state.coreUpgrades[kind];
@@ -156,6 +222,7 @@ export class Game {
     s.upgrades = Object.fromEntries(
       Object.keys(TURRET_TYPES).map((t) => [t, { dmg: 0, rate: 0 }]),
     );
+    s.evolved = Object.fromEntries(Object.keys(TURRET_TYPES).map((t) => [t, false]));
     s.spawnUpgrades.rate = 0;
     s.spawnUpgrades.gold = 0;
     s.spawnUpgrades.swarm = 0;
@@ -168,6 +235,7 @@ export class Game {
     this.tracers.length = 0;
     this.cd.clear();
     this.dronePos.clear();
+    this.pendingSpawns.length = 0;
     this.waveSpawned = 0;
     this.spawnTimer = 1;
     this.goldEarnedWindow = 0;
@@ -188,8 +256,13 @@ export class Game {
     this.updateShells(dt);
     this.updateBlasts(dt);
     this.updateTracers(dt);
+    if (this.pendingSpawns.length) {
+      this.enemies.push(...this.pendingSpawns);
+      this.pendingSpawns.length = 0;
+    }
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.trackGoldRate(dt);
+    this.checkMilestones();
   }
 
   // Ground turrets have no slots: they are spread evenly along the turret
@@ -220,6 +293,7 @@ export class Game {
       }
     } else if (this.enemies.length === 0) {
       this.state.wave++;
+      if (this.state.wave > this.state.bestWave) this.state.bestWave = this.state.wave;
       this.waveSpawned = 0;
       this.spawnTimer = 1;
     }
@@ -233,30 +307,58 @@ export class Game {
     return { vx: (dx / len) * speed, vy: (dy / len) * speed };
   }
 
+  // Non-boss spawns roll a kind from the wave's unlocked pool; bosses roll a
+  // modifier from the same pool at high waves. Kind multipliers stack on top
+  // of the wave's base numbers.
   spawnEnemy(conf) {
-    this.enemies.push({
+    const kind = conf.boss ? rollBossMod(this.state.wave) : rollEnemyKind(this.state.wave);
+    const k = ENEMY_TYPES[kind];
+    const speed = conf.speed * (k.speed ?? 1);
+    const hp = conf.hp * (k.hp ?? 1);
+    const e = {
+      kind,
       x: SPAWN.x + (Math.random() * 10 - 5),
       y: SPAWN.y + (Math.random() * 10 - 5),
-      ...this.marchVelocity(conf.speed),
-      speed: conf.speed,
-      hp: conf.hp,
-      maxHp: conf.hp,
-      gold: conf.gold * this.goldMult(),
+      ...this.marchVelocity(speed),
+      speed,
+      hp,
+      maxHp: hp,
+      gold: conf.gold * (k.gold ?? 1) * this.goldMult(),
       boss: conf.boss,
       hitFlash: 0,
       slow: 1,
       dead: false,
-    });
+    };
+    if (k.blink) e.blinkT = Math.random() * (k.blink.visible + k.blink.hidden);
+    this.enemies.push(e);
+    this.announceKind(kind);
+  }
+
+  announceKind(kind) {
+    if (kind === 'normal' || this.state.seenEnemies[kind]) return;
+    this.state.seenEnemies[kind] = true;
+    const k = ENEMY_TYPES[kind];
+    this.toast?.(`NEW ENEMY: ${k.name} — ${k.intro}`);
   }
 
   updateEnemies(dt) {
     for (const e of this.enemies) {
-      // Freeze zones slow everything inside them.
+      // Ghosts cycle in and out of phase; while phased they are untargetable
+      // and immune (see damage / nearestEnemy / toughestEnemy).
+      const blink = ENEMY_TYPES[e.kind]?.blink;
+      if (blink) {
+        e.blinkT = (e.blinkT + dt) % (blink.visible + blink.hidden);
+        e.phased = e.blinkT >= blink.visible;
+      }
+      // Freeze zones slow everything inside them (and burn, once evolved).
       e.slow = 1;
-      for (const z of this.zones) {
-        if (Math.hypot(e.x - z.x, e.y - z.y) <= z.r) {
-          e.slow = z.factor;
-          break;
+      if (!e.phased) {
+        for (const z of this.zones) {
+          if (Math.hypot(e.x - z.x, e.y - z.y) <= z.r) {
+            e.slow = z.factor;
+            if (z.dps) this.damage(e, z.dps * dt);
+            break;
+          }
         }
       }
       e.x += e.vx * dt * e.slow;
@@ -287,6 +389,14 @@ export class Game {
         if (target) {
           this.damage(target, st.dmg * st.rate * dt);
           this.beams.push({ x0: tip.x, y0: tip.y, x1: target.x, y1: target.y });
+          if (this.evolved('laser')) {
+            // PRISM: a second beam at half power on the next-nearest enemy.
+            const second = this.nearestEnemy(tip.x, tip.y, target);
+            if (second) {
+              this.damage(second, st.dmg * st.rate * dt * 0.5);
+              this.beams.push({ x0: tip.x, y0: tip.y, x1: second.x, y1: second.y });
+            }
+          }
         }
       } else if (t.type === 'gun') {
         const p = this.turretPos.get(t);
@@ -297,6 +407,11 @@ export class Game {
           if (cd === 0) {
             cd = 1 / st.rate;
             this.fireBullet(p.x, y, target, st.dmg, TURRET_TYPES.gun.bulletSpeed);
+            if (this.evolved('gun')) {
+              // TWIN GUN: second bullet at another enemy, or the same one.
+              const second = this.nearestEnemy(p.x, y, target) ?? target;
+              this.fireBullet(p.x, y, second, st.dmg, TURRET_TYPES.gun.bulletSpeed);
+            }
           }
         }
       } else if (t.type === 'mortar' || t.type === 'freezer') {
@@ -315,6 +430,9 @@ export class Game {
             dmg: st.dmg,
             splash: def.splash ?? def.zoneRadius,
             freeze: t.type === 'freezer',
+            cluster: t.type === 'mortar' && this.evolved('mortar'),
+            // PERMAFROST: evolved freeze zones burn for the freezer's dmg/sec.
+            dps: t.type === 'freezer' && this.evolved('freezer') ? st.dmg : 0,
           });
         }
       } else if (t.type === 'sniper') {
@@ -322,8 +440,16 @@ export class Game {
         if (target && cd === 0) {
           cd = 1 / st.rate;
           const p = this.turretPos.get(t);
-          this.damage(target, st.dmg);
-          this.tracers.push({ x0: p.x, y0: p.y - 7, x1: target.x, y1: target.y, t: 0 });
+          const x0 = p.x;
+          const y0 = p.y - 7;
+          let end = target;
+          if (this.evolved('sniper')) {
+            // RAILGUN: the shot pierces along its whole path.
+            end = this.pierceLine(x0, y0, target, st.dmg);
+          } else {
+            this.damage(target, st.dmg);
+          }
+          this.tracers.push({ x0, y0, x1: end.x, y1: end.y, t: 0 });
         }
       }
       this.cd.set(t, cd);
@@ -351,8 +477,31 @@ export class Game {
     if (target && cd === 0) {
       cd = 1 / st.rate;
       this.fireBullet(p.x, p.y, target, st.dmg, def.bulletSpeed);
+      if (this.evolved('drone')) {
+        // WASP: a second sting at the next-nearest enemy.
+        const second = this.nearestEnemy(p.x, p.y, target);
+        if (second) this.fireBullet(p.x, p.y, second, st.dmg, def.bulletSpeed);
+      }
     }
     return cd;
+  }
+
+  // RAILGUN: damage every enemy on the ray from the muzzle through the
+  // target. Returns the far end of the tracer.
+  pierceLine(x0, y0, target, dmg) {
+    const dx = target.x - x0;
+    const dy = target.y - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    for (const e of this.enemies) {
+      if (e.dead || e.phased) continue;
+      const along = (e.x - x0) * ux + (e.y - y0) * uy;
+      if (along < 0) continue;
+      const perp = Math.abs((e.x - x0) * uy - (e.y - y0) * ux);
+      if (perp <= 2.5) this.damage(e, dmg);
+    }
+    return { x: x0 + ux * 260, y: y0 + uy * 260 };
   }
 
   fireBullet(x, y, target, dmg, speed) {
@@ -372,7 +521,9 @@ export class Game {
   updateBullets(dt) {
     for (const b of this.bullets) {
       b.life -= dt;
-      const tgt = b.target && !b.target.dead ? b.target : null;
+      // A phased ghost can't be homed on or hit — the bullet flies straight
+      // until its target comes back into phase (or the bullet expires).
+      const tgt = b.target && !b.target.dead && !b.target.phased ? b.target : null;
       if (tgt) {
         const dx = tgt.x - b.x;
         const dy = tgt.y - b.y;
@@ -397,9 +548,21 @@ export class Game {
     for (const s of this.shells) {
       s.t += dt / s.dur;
       if (s.t >= 1) {
-        for (const e of this.enemies) {
-          if (!e.dead && Math.hypot(e.x - s.x1, e.y - s.y1) <= s.splash) {
-            this.damage(e, s.dmg);
+        if (s.cluster) {
+          // CLUSTER: three smaller blasts scattered around the impact point.
+          const base = Math.random() * Math.PI * 2;
+          for (let i = 0; i < 3; i++) {
+            const a = base + (i / 3) * Math.PI * 2;
+            const off = s.splash * 0.7;
+            const bx = Math.min(Math.max(s.x1 + Math.cos(a) * off, 2), W - 2);
+            const by = Math.min(s.y1 + Math.sin(a) * off, TURRET_Y - 5);
+            this.explode(bx, by, s.splash * 0.7, s.dmg * 0.6);
+          }
+        } else {
+          for (const e of this.enemies) {
+            if (!e.dead && Math.hypot(e.x - s.x1, e.y - s.y1) <= s.splash) {
+              this.damage(e, s.dmg);
+            }
           }
         }
         if (s.freeze) {
@@ -409,15 +572,23 @@ export class Game {
             y: s.y1,
             r: def.zoneRadius,
             factor: def.slowFactor,
+            dps: s.dps,
             t: 0,
             dur: def.zoneDuration,
           });
-        } else {
+        } else if (!s.cluster) {
           this.blasts.push({ x: s.x1, y: s.y1, maxR: s.splash, t: 0, dur: 0.3 });
         }
       }
     }
     this.shells = this.shells.filter((s) => s.t < 1);
+  }
+
+  explode(x, y, r, dmg) {
+    for (const e of this.enemies) {
+      if (!e.dead && Math.hypot(e.x - x, e.y - y) <= r) this.damage(e, dmg);
+    }
+    this.blasts.push({ x, y, maxR: r, t: 0, dur: 0.3 });
   }
 
   updateZones(dt) {
@@ -436,24 +607,67 @@ export class Game {
   }
 
   damage(e, amt) {
-    if (e.dead) return;
+    if (e.dead || e.phased) return;
     e.hp -= amt;
     e.hitFlash = 0.08;
     if (e.hp <= 0) {
       e.dead = true;
       this.state.kills++;
       this.state.gold += e.gold;
+      this.state.goldEarned += e.gold;
       this.goldEarnedWindow += e.gold;
+      const splits = ENEMY_TYPES[e.kind]?.splits;
+      if (splits && !e.mini) this.split(e, splits);
       this.blasts.push({ x: e.x, y: e.y, maxR: e.boss ? 12 : 4, t: 0, dur: 0.3 });
     }
   }
 
-  // Weapons have no range limit: anything on the field is targetable.
-  nearestEnemy(x, y) {
+  // A dying splitter breaks into faster minis that carry a fraction of its
+  // max hp and gold. Buffered so they can't be caught by the killing blast.
+  split(e, def) {
+    const [lo, hi] = def.count;
+    const n = e.boss ? def.bossCount : lo + Math.floor(Math.random() * (hi - lo + 1));
+    const hpFrac = e.boss ? def.bossHp : def.hp;
+    for (let i = 0; i < n; i++) {
+      const speed = e.speed * def.speed;
+      const hp = e.maxHp * hpFrac;
+      this.pendingSpawns.push({
+        kind: 'mini',
+        mini: true,
+        x: Math.min(Math.max(e.x + (Math.random() * 8 - 4), 2), W - 2),
+        y: Math.min(e.y + (Math.random() * 8 - 4), TURRET_Y - 6),
+        ...this.marchVelocity(speed),
+        speed,
+        hp,
+        maxHp: hp,
+        gold: e.gold * def.gold,
+        boss: false,
+        hitFlash: 0,
+        slow: 1,
+        dead: false,
+      });
+    }
+  }
+
+  checkMilestones() {
+    for (const m of MILESTONES) {
+      if (!this.milestoneDone(m)) continue;
+      const key = milestoneKey(m);
+      if (this.announced.has(key)) continue;
+      this.announced.add(key);
+      const { req, bonus } = milestoneText(m);
+      this.toast?.(`MILESTONE: ${req} — ${bonus} FOREVER`);
+    }
+  }
+
+  // Weapons have no range limit: anything on the field is targetable —
+  // except phased ghosts. `exclude` lets evolved weapons pick a second
+  // target different from their first.
+  nearestEnemy(x, y, exclude = null) {
     let best = null;
     let bd = Infinity;
     for (const e of this.enemies) {
-      if (e.dead) continue;
+      if (e.dead || e.phased || e === exclude) continue;
       const d = Math.hypot(e.x - x, e.y - y);
       if (d < bd) {
         bd = d;
@@ -466,7 +680,7 @@ export class Game {
   toughestEnemy() {
     let best = null;
     for (const e of this.enemies) {
-      if (e.dead) continue;
+      if (e.dead || e.phased) continue;
       if (!best || e.hp > best.hp) best = e;
     }
     return best;
