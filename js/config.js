@@ -77,25 +77,31 @@ export const UPGRADE_TYPES = {
   rate: { name: 'RATE', baseCost: 25, costGrowth: 1.6, mult: 1.12 },
 };
 
-// Global upgrades for the spawn portal, bought in the SPAWN tab.
+// Global upgrades for the spawn portal, bought in the SPAWN tab. Levels are
+// gated by wave progression: level N needs wave N * wavePerLevel, so the
+// portal (and the difficulty it brings) evolves alongside the wave push
+// instead of being bought up front with farmed gold.
 export const SPAWN_UPGRADES = {
   rate: {
     name: 'SPAWN RATE',
     desc: '-8% spawn delay',
     baseCost: 100,
     costGrowth: 1.75,
+    wavePerLevel: 5,
   },
   gold: {
     name: 'GOLD BONUS',
     desc: '+15% gold per kill',
     baseCost: 150,
     costGrowth: 1.8,
+    wavePerLevel: 5,
   },
   swarm: {
     name: 'SWARM SIZE',
     desc: '+1 enemy per wave',
     baseCost: 200,
     costGrowth: 1.8,
+    wavePerLevel: 10,
   },
   offline: {
     name: 'OFFLINE GAIN',
@@ -103,7 +109,26 @@ export const SPAWN_UPGRADES = {
     baseCost: 250,
     costGrowth: 1.9,
     maxLevel: 10, // 50% base + 10 * 5% = 100%
+    wavePerLevel: 10,
   },
+  offlineTime: {
+    name: 'OFFLINE TIME',
+    desc: '+1h offline cap',
+    baseCost: 300,
+    costGrowth: 1.9,
+    maxLevel: 20, // 4h base + 20h = a full day
+    wavePerLevel: 10,
+  },
+};
+
+// Offline earnings: while the tab is closed the player earns goldPerSec at
+// reduced efficiency, for a capped number of hours. Both knobs are pushed by
+// the OFFLINE GAIN and OFFLINE TIME spawn upgrades.
+export const OFFLINE = {
+  baseHours: 4,
+  hoursPerLevel: 1,
+  baseEff: 0.5,
+  effPerLevel: 0.05,
 };
 
 export const BOSS_EVERY = 10;

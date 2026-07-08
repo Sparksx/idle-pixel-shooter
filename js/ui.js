@@ -9,7 +9,7 @@ export function fmt(n) {
 }
 
 const TAB_DESCS = {
-  spawn: 'portal upgrades — apply to every wave',
+  spawn: 'portal upgrades — levels unlock as you reach higher waves',
 };
 
 export function buildUI(game) {
@@ -63,9 +63,15 @@ export function buildUI(game) {
         updaters.push(() => {
           const lvl = game.state.spawnUpgrades[kind];
           const maxed = def.maxLevel != null && lvl >= def.maxLevel;
+          const waveLocked = !maxed && lvl >= game.spawnUpgradeMaxLevel(kind);
+          const cost = game.spawnUpgradeCost(kind);
           b.label.textContent = `${def.name} LV${lvl}`;
-          b.sub.textContent = maxed ? 'MAX' : `${fmt(game.spawnUpgradeCost(kind))} G`;
-          b.btn.disabled = maxed || game.state.gold < game.spawnUpgradeCost(kind);
+          b.sub.textContent = maxed
+            ? 'MAX'
+            : waveLocked
+              ? `REACH WAVE ${(lvl + 1) * def.wavePerLevel}`
+              : `${fmt(cost)} G`;
+          b.btn.disabled = maxed || waveLocked || game.state.gold < cost;
         });
       }
       return;

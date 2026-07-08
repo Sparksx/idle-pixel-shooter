@@ -56,6 +56,14 @@ export class Game {
     return Math.round(def.baseCost * Math.pow(def.costGrowth, lvl));
   }
 
+  // Highest level currently purchasable: capped by the def's maxLevel and by
+  // wave progression (one level per wavePerLevel waves reached).
+  spawnUpgradeMaxLevel(kind) {
+    const def = SPAWN_UPGRADES[kind];
+    const byWave = Math.floor(this.state.wave / def.wavePerLevel);
+    return def.maxLevel != null ? Math.min(def.maxLevel, byWave) : byWave;
+  }
+
   ownedCount(type) {
     return this.state.turrets.filter((t) => t.type === type).length;
   }
@@ -92,9 +100,8 @@ export class Game {
   }
 
   buySpawnUpgrade(kind) {
-    const def = SPAWN_UPGRADES[kind];
     const lvl = this.state.spawnUpgrades[kind];
-    if (def.maxLevel != null && lvl >= def.maxLevel) return false;
+    if (lvl >= this.spawnUpgradeMaxLevel(kind)) return false;
     const cost = this.spawnUpgradeCost(kind);
     if (this.state.gold < cost) return false;
     this.state.gold -= cost;

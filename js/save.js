@@ -14,7 +14,7 @@ export function defaultState() {
       freezer: { dmg: 0, rate: 0 },
       sniper: { dmg: 0, rate: 0 },
     },
-    spawnUpgrades: { rate: 0, gold: 0, swarm: 0, offline: 0 },
+    spawnUpgrades: { rate: 0, gold: 0, swarm: 0, offline: 0, offlineTime: 0 },
     goldPerSec: 0,
     lastSeen: Date.now(),
   };
