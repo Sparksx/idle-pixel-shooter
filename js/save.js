@@ -1,4 +1,4 @@
-import { TURRET_TYPES } from './config.js';
+import { TURRET_TYPES, WALL } from './config.js';
 
 const KEY = 'idle-pixel-shooter-v1';
 
@@ -12,7 +12,8 @@ export function defaultState() {
       Object.keys(TURRET_TYPES).map((t) => [t, { dmg: 0, rate: 0 }]),
     ),
     evolved: Object.fromEntries(Object.keys(TURRET_TYPES).map((t) => [t, false])),
-    spawnUpgrades: { rate: 0, gold: 0, swarm: 0, offline: 0, offlineTime: 0 },
+    spawnUpgrades: { rate: 0, gold: 0, swarm: 0, wallHp: 0, repair: 0, offline: 0, offlineTime: 0 },
+    wallHp: WALL.maxHp,
     cores: 0,
     rebirths: 0,
     coreUpgrades: { dmg: 0, gold: 0, start: 0, skip: 0 },

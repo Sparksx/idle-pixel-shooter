@@ -8,6 +8,7 @@ import {
   REBIRTH,
   CORE_UPGRADES,
   ENEMY_TYPES,
+  WALL,
   EVOLUTIONS,
   EVOLVE_LEVELS,
   MILESTONES,
@@ -40,6 +41,10 @@ export class Game {
     // Splitter children are buffered here and flushed at the end of update()
     // so a splash blast can't chain-kill minis the same frame they appear.
     this.pendingSpawns = [];
+    this.wallFlash = 0; // runtime bite-flash visual
+    this.wallHitT = WALL.regenDelay; // seconds since the wall was last bitten
+    // Old saves may carry more wall HP than the current max allows.
+    this.state.wallHp = Math.min(this.state.wallHp, this.wallMaxHp());
     // Optional toast callback wired up by main.js.
     this.toast = null;
     // Milestones already reached at load don't get re-announced.
@@ -151,6 +156,20 @@ export class Game {
     return Math.min(conf.count + this.state.spawnUpgrades.swarm, 30);
   }
 
+  wallMaxHp() {
+    return WALL.maxHp + SPAWN_UPGRADES.wallHp.amount * this.state.spawnUpgrades.wallHp;
+  }
+
+  wallRepairRate() {
+    return WALL.regenRate + SPAWN_UPGRADES.repair.amount * this.state.spawnUpgrades.repair;
+  }
+
+  wallDmg(e) {
+    if (e.boss) return WALL.dmg * WALL.bossDmgMult;
+    if (e.mini) return WALL.dmg * WALL.miniDmgMult;
+    return WALL.dmg * (ENEMY_TYPES[e.kind]?.wall ?? 1);
+  }
+
   // --- player actions ------------------------------------------------------
 
   buyTurret(type) {
@@ -226,16 +245,13 @@ export class Game {
     s.spawnUpgrades.rate = 0;
     s.spawnUpgrades.gold = 0;
     s.spawnUpgrades.swarm = 0;
+    s.spawnUpgrades.wallHp = 0;
+    s.spawnUpgrades.repair = 0;
+    s.wallHp = this.wallMaxHp();
     s.goldPerSec = 0; // the new run earns nothing yet — don't inflate offline gains
-    this.enemies.length = 0;
-    this.bullets.length = 0;
-    this.shells.length = 0;
-    this.blasts.length = 0;
-    this.zones.length = 0;
-    this.tracers.length = 0;
+    this.clearField();
     this.cd.clear();
     this.dronePos.clear();
-    this.pendingSpawns.length = 0;
     this.waveSpawned = 0;
     this.spawnTimer = 1;
     this.goldEarnedWindow = 0;
@@ -251,6 +267,7 @@ export class Game {
     this.updateWave(dt);
     this.updateZones(dt);
     this.updateEnemies(dt);
+    this.updateWall(dt);
     this.updateTurrets(dt);
     this.updateBullets(dt);
     this.updateShells(dt);
@@ -296,6 +313,8 @@ export class Game {
       if (this.state.wave > this.state.bestWave) this.state.bestWave = this.state.wave;
       this.waveSpawned = 0;
       this.spawnTimer = 1;
+      // Surviving a wave leaves time to patch every crack.
+      this.state.wallHp = this.wallMaxHp();
     }
   }
 
@@ -344,8 +363,9 @@ export class Game {
   updateEnemies(dt) {
     for (const e of this.enemies) {
       // Ghosts cycle in and out of phase; while phased they are untargetable
-      // and immune (see damage / nearestEnemy / toughestEnemy).
-      const blink = ENEMY_TYPES[e.kind]?.blink;
+      // and immune (see damage / nearestEnemy / toughestEnemy). A ghost that
+      // reaches the wall materializes for good — no phasing mid-bite.
+      const blink = e.atWall ? null : ENEMY_TYPES[e.kind]?.blink;
       if (blink) {
         e.blinkT = (e.blinkT + dt) % (blink.visible + blink.hidden);
         e.phased = e.blinkT >= blink.visible;
@@ -364,15 +384,68 @@ export class Game {
       e.x += e.vx * dt * e.slow;
       e.y += e.vy * dt * e.slow;
       e.hitFlash = Math.max(e.hitFlash - dt, 0);
-      // Reached the turret line: the enemy slips past and loops back through
-      // the portal. Waves only complete once everything is killed, so the
-      // difficulty can never outrun the player's damage output.
-      if (e.y >= TURRET_Y - 4) {
-        e.x = SPAWN.x + (Math.random() * 10 - 5);
-        e.y = SPAWN.y;
-        Object.assign(e, this.marchVelocity(e.speed));
+      // Reached the wall: the enemy latches on and starts biting (see
+      // updateWall). It stays targetable — and being closest to the turret
+      // line, nearest-enemy weapons naturally focus the biters first.
+      if (!e.atWall && e.y >= TURRET_Y - 4) {
+        e.atWall = true;
+        e.y = TURRET_Y - 4;
+        e.vx = 0;
+        e.vy = 0;
+        e.phased = false;
+        e.biteT = 0;
       }
     }
+  }
+
+  // Latched enemies bite the wall once a second; when nobody has bitten for
+  // a while the wall repairs itself (and fully, between waves).
+  updateWall(dt) {
+    this.wallHitT += dt;
+    this.wallFlash = Math.max(this.wallFlash - dt, 0);
+    for (const e of this.enemies) {
+      if (!e.atWall || e.dead) continue;
+      e.biteT += dt;
+      if (e.biteT >= WALL.hitEvery) {
+        e.biteT -= WALL.hitEvery;
+        this.state.wallHp -= this.wallDmg(e);
+        this.wallHitT = 0;
+        this.wallFlash = 0.15;
+      }
+    }
+    if (this.state.wallHp <= 0) {
+      this.breach();
+    } else if (this.wallHitT >= WALL.regenDelay) {
+      this.state.wallHp = Math.min(
+        this.state.wallHp + this.wallRepairRate() * dt,
+        this.wallMaxHp(),
+      );
+    }
+  }
+
+  // The wall is down: clear the field, rebuild the wall and push the run
+  // back a few waves. A setback, never a game over — an unattended run
+  // oscillates around the wave it can hold instead of dying.
+  breach() {
+    const s = this.state;
+    const startWave = 1 + CORE_UPGRADES.skip.amount * s.coreUpgrades.skip;
+    s.wave = Math.max(s.wave - WALL.setback, Math.min(startWave, s.wave), 1);
+    this.clearField();
+    this.waveSpawned = 0;
+    this.spawnTimer = 2; // a breather while the wall goes back up
+    s.wallHp = this.wallMaxHp();
+    this.wallHitT = WALL.regenDelay;
+    this.toast?.(`WALL BREACHED — PUSHED BACK TO WAVE ${s.wave}`);
+  }
+
+  clearField() {
+    this.enemies.length = 0;
+    this.bullets.length = 0;
+    this.shells.length = 0;
+    this.blasts.length = 0;
+    this.zones.length = 0;
+    this.tracers.length = 0;
+    this.pendingSpawns.length = 0;
   }
 
   updateTurrets(dt) {

@@ -103,6 +103,22 @@ export const SPAWN_UPGRADES = {
     costGrowth: 1.8,
     wavePerLevel: 10,
   },
+  wallHp: {
+    name: 'WALL HP',
+    desc: '+30 max wall HP',
+    baseCost: 200,
+    costGrowth: 1.8,
+    amount: 30,
+    wavePerLevel: 10,
+  },
+  repair: {
+    name: 'WALL REPAIR',
+    desc: '+1 wall HP/s repair',
+    baseCost: 250,
+    costGrowth: 1.85,
+    amount: 1,
+    wavePerLevel: 10,
+  },
   offline: {
     name: 'OFFLINE GAIN',
     desc: '+5% offline earnings',
@@ -119,6 +135,23 @@ export const SPAWN_UPGRADES = {
     maxLevel: 20, // 4h base + 20h = a full day
     wavePerLevel: 10,
   },
+};
+
+// The wall: enemies that reach the turret line latch onto the wall and bite
+// it once a second. At 0 HP the wall is breached — the field clears, the
+// wall is rebuilt and the run is pushed back `setback` waves. A setback,
+// never a game over. Bite damage is flat (wave-independent) so a leak stings
+// the same at wave 5 and wave 500; the WALL HP / WALL REPAIR spawn upgrades
+// grow the buffer.
+export const WALL = {
+  maxHp: 100,
+  hitEvery: 1, // seconds between bites from a latched enemy
+  dmg: 4, // base damage per bite (multiplied by the kind's `wall` stat)
+  bossDmgMult: 6,
+  miniDmgMult: 0.4,
+  regenDelay: 3, // seconds without a bite before repairs start
+  regenRate: 2, // hp/sec once repairs kick in
+  setback: 5, // waves lost on a breach
 };
 
 // Offline earnings: while the tab is closed the player earns goldPerSec at
@@ -178,8 +211,9 @@ export const CORE_UPGRADES = {
 // Enemy variety: special types unlock with wave progress so each bracket of
 // waves changes the optimal turret mix. Every non-boss spawn rolls a kind
 // from the unlocked pool (weights below; the plain pixel stays the most
-// common). Stat fields multiply the wave's base hp/speed/gold; `splits` and
-// `blink` are behaviour hooks handled in Game.
+// common). Stat fields multiply the wave's base hp/speed/gold, `wall`
+// multiplies bite damage against the wall; `splits` and `blink` are
+// behaviour hooks handled in Game.
 export const ENEMY_TYPES = {
   normal: { name: 'PIXEL', weight: 10 },
   runner: {
@@ -189,6 +223,7 @@ export const ENEMY_TYPES = {
     hp: 0.5,
     speed: 2,
     gold: 1.2,
+    wall: 0.75,
     intro: '2X SPEED, HALF HP',
   },
   tank: {
@@ -198,6 +233,7 @@ export const ENEMY_TYPES = {
     hp: 4,
     speed: 0.5,
     gold: 2.5,
+    wall: 2.5,
     intro: '4X HP, PAYS 2.5X',
   },
   splitter: {

@@ -15,6 +15,12 @@ ordered by impact-per-effort and each one is shippable on its own.
 - **Phase 1 — prestige / rebirth loop** (see below): shipped.
 - **Phase 2 — enemy variety** (see below): shipped.
 - **Phase 3 — weapon evolutions & milestones** (see below): shipped.
+- **The wall (lose mechanism)**: enemies that reach the turret line latch
+  onto a wall with HP and bite it every second instead of looping back to
+  the portal. The wall self-repairs between bites and fully between waves;
+  a breach clears the field and pushes the run back 5 waves (never a game
+  over, so unattended runs oscillate around the wave they can hold). New
+  wave-gated WALL HP / WALL REPAIR portal upgrades grow the buffer.
 
 ## Phase 1 — Prestige / rebirth loop ✅ done
 
