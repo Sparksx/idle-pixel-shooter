@@ -49,6 +49,10 @@ applyOfflineGains();
 let last = performance.now();
 let saveTimer = 0;
 let uiTimer = 0;
+// Once the save is wiped we must stop persisting the in-memory state, or the
+// autosave loop / the visibilitychange fired by location.reload() would write
+// the old progress straight back and undo the reset.
+let wiped = false;
 
 function frame(now) {
   // Clamp dt so a background tab or hiccup doesn't fast-forward the sim.
@@ -61,7 +65,7 @@ function frame(now) {
   saveTimer += dt;
   if (saveTimer >= 5) {
     saveTimer = 0;
-    save(state);
+    if (!wiped) save(state);
   }
   uiTimer += dt;
   if (uiTimer >= 0.2) {
@@ -74,7 +78,7 @@ requestAnimationFrame(frame);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    save(state);
+    if (!wiped) save(state);
   } else {
     last = performance.now();
     applyOfflineGains();
@@ -84,6 +88,7 @@ document.addEventListener('visibilitychange', () => {
 
 document.getElementById('reset').addEventListener('click', () => {
   if (confirm('Wipe your save and start over?')) {
+    wiped = true;
     wipe();
     location.reload();
   }
