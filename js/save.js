@@ -21,6 +21,11 @@ export function defaultState() {
     bestWave: 1,
     goldEarned: 0,
     seenEnemies: {},
+    // Daily challenge: the active challenge (or null), the stashed main run
+    // while one is running, and the date of the last completed daily.
+    challenge: null,
+    stashedRun: null,
+    dailyDone: '',
     goldPerSec: 0,
     lastSeen: Date.now(),
   };

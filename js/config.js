@@ -355,6 +355,53 @@ export const MILESTONES = [
   { stat: 'goldEarned', at: 1e8, gold: 0.2 },
 ];
 
+// Elite waves: every ELITE_EVERY waves the whole wave gets a fixed modifier,
+// announced on screen before it starts. The modifier rotates deterministically
+// (wave 25 → first entry, 50 → second, ...), so a given wave number is always
+// the same elite. Stat fields multiply the wave's spawns; `regen` heals each
+// enemy for that fraction of its max hp per second.
+export const ELITE_EVERY = 25;
+
+export const ELITE_MODS = [
+  { name: 'FRENZY', desc: 'FASTER, PAYS 1.5X', speed: 1.75, gold: 1.5 },
+  { name: 'GOLD RUSH', desc: 'TOUGHER, PAYS 3X', hp: 1.25, gold: 3 },
+  { name: 'REGEN', desc: 'ENEMIES HEAL, PAY 1.5X', regen: 0.02, gold: 1.5 },
+];
+
+export function eliteConf(wave) {
+  if (wave < ELITE_EVERY || wave % ELITE_EVERY !== 0) return null;
+  return ELITE_MODS[(wave / ELITE_EVERY - 1) % ELITE_MODS.length];
+}
+
+// Daily challenge: a seeded side-run with a twist, launched from the CORE tab
+// once the player has rebirthed. The date (UTC) picks the day's rule — same
+// challenge for everyone, no backend. The main run is stashed while the
+// challenge is active and restored when it ends. Clearing `targetWave` pays
+// cores: baseReward plus half a rebirth at the player's best wave, so the
+// daily stays relevant as the save grows.
+export const CHALLENGE = {
+  unlockRebirths: 1,
+  targetWave: 30,
+  baseReward: 15,
+  rules: [
+    { id: 'noMortar', name: 'NO MORTAR', desc: 'the mortar is banned', ban: 'mortar' },
+    { id: 'noDrone', name: 'NO DRONE', desc: 'the drone is banned', ban: 'drone' },
+    { id: 'noLaser', name: 'NO LASER', desc: 'the laser is banned', ban: 'laser' },
+    { id: 'noFreezer', name: 'NO FREEZER', desc: 'the freezer is banned', ban: 'freezer' },
+    { id: 'noSniper', name: 'NO SNIPER', desc: 'the sniper is banned', ban: 'sniper' },
+    { id: 'halfGold', name: 'HALF GOLD', desc: 'kills pay half', goldMult: 0.5 },
+    { id: 'runnersOnly', name: 'RUNNERS ONLY', desc: 'every enemy is a runner', forceKind: 'runner' },
+    { id: 'tanksOnly', name: 'TANKS ONLY', desc: 'every enemy is a tank', forceKind: 'tank' },
+    { id: 'brittleWall', name: 'BRITTLE WALL', desc: 'the wall has 30% hp', wallMult: 0.3 },
+  ],
+};
+
+export function dailyRule(dateStr) {
+  let h = 0;
+  for (const c of dateStr) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return CHALLENGE.rules[h % CHALLENGE.rules.length];
+}
+
 export function milestoneText(m) {
   const pct = Math.round((m.dmg ?? m.gold) * 100);
   return {

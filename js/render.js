@@ -1,4 +1,4 @@
-import { W, H, TURRET_Y, SPAWN } from './config.js';
+import { W, H, TURRET_Y, SPAWN, eliteConf } from './config.js';
 
 const BOSS_PATTERN = ['#...#', '.###.', '#####', '.###.', '#...#'];
 
@@ -20,6 +20,36 @@ export function render(ctx, game, time) {
   drawTurrets(ctx, game);
   drawDrones(ctx, game, time);
   drawBossBar(ctx, game);
+  drawModeMarkers(ctx, game);
+  drawBanner(ctx, game, time);
+}
+
+// Persistent corner tags: DAILY while a challenge run is active, ELITE while
+// the current wave carries an elite modifier.
+function drawModeMarkers(ctx, game) {
+  ctx.font = '7px "Courier New", monospace';
+  ctx.fillStyle = '#666';
+  if (game.state.challenge) ctx.fillText('DAILY', 2, 14);
+  const elite = eliteConf(game.state.wave);
+  if (elite) {
+    ctx.textAlign = 'right';
+    ctx.fillText(`ELITE: ${elite.name}`, W - 2, 14);
+    ctx.textAlign = 'left';
+  }
+}
+
+// Short centered announcement (elite wave incoming, challenge start/end),
+// blinking through its last second.
+function drawBanner(ctx, game, time) {
+  const b = game.banner;
+  if (!b || (b.t < 1 && Math.floor(time * 8) % 2)) return;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 86, W, 12);
+  ctx.fillStyle = '#fff';
+  ctx.font = '8px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(b.text, W / 2, 95);
+  ctx.textAlign = 'left';
 }
 
 function drawGround(ctx, game) {

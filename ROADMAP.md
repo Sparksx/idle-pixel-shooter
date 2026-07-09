@@ -15,6 +15,7 @@ ordered by impact-per-effort and each one is shippable on its own.
 - **Phase 1 — prestige / rebirth loop** (see below): shipped.
 - **Phase 2 — enemy variety** (see below): shipped.
 - **Phase 3 — weapon evolutions & milestones** (see below): shipped.
+- **Phase 4 — elite waves & daily challenges** (see below): shipped.
 - **The wall (lose mechanism)**: enemies that reach the turret line latch
   onto a wall with HP and bite it every second instead of looping back to
   the portal. The wall self-repairs between bites and fully between waves;
@@ -73,13 +74,58 @@ each bracket of waves changes the optimal turret mix. As shipped
   All three stats survive rebirth, so the bonuses (+5%…+25% damage or gold,
   additive per column) give the numbers a memory across the whole save.
 
-## Phase 4 — Wave texture & challenges (variety per session)
+## Phase 4 — Wave texture & challenges ✅ done
 
-- **Elite waves** every 25 waves: fixed modifier (double speed, regenerating,
-  gold rush) announced on screen before it starts.
-- **Challenge runs**: seeded side-modes launched from the panel ("no mortar",
-  "half gold", "runners only") that award cores or a cosmetic border. Seeded
-  by date → a daily challenge with no backend.
+- **Elite waves**: every 25th wave carries a fixed modifier, rotating
+  deterministically — wave 25 **FRENZY** (1.75× speed, 1.5× gold), 50
+  **GOLD RUSH** (1.25× hp, 3× gold), 75 **REGEN** (enemies heal 2% max
+  hp/s, 1.5× gold), then the cycle repeats. Announced before the first
+  spawn with a toast plus an on-canvas banner, and tagged in the corner
+  for the whole wave. Elite multipliers stack with enemy kinds and boss
+  modifiers.
+- **Daily challenge** (CORE tab, unlocked after the first rebirth): the
+  UTC date seeds one rule from a pool of nine — a banned weapon (mortar /
+  drone / laser / freezer / sniper), HALF GOLD, RUNNERS ONLY, TANKS ONLY,
+  or BRITTLE WALL (30% wall hp) — same challenge for everyone, no backend.
+  Starting it stashes the main run and opens a fresh wave-1 run under the
+  rule (permanent core & milestone bonuses still apply). Clearing wave 30
+  pays `15 + rebirth(bestWave)/2` cores, so the daily stays relevant as
+  the save grows; abandoning restores the main run unrewarded and the
+  day can be retried. One completion per day.
+
+## What's next (planned)
+
+Ordered by impact-per-effort, same rule as before: each phase shippable
+on its own.
+
+### Phase 5 — Juice & QoL
+
+The systems are in; now make them feel good and safe to invest in.
+
+- **Sound & feedback**: tiny synthesized blips (WebAudio, no assets) for
+  kills, bosses, breaches and evolutions, with a mute toggle in the
+  footer; hit particles and a 1-frame screen shake on boss deaths and
+  wall breaches.
+- **Numbers readout**: a small stats line (DPS, gold/min, wall pressure)
+  so upgrade choices become informed instead of vibes.
+- **Save export/import**: copy/paste the save as base64 from the footer —
+  cheap insurance for a weeks-old save in localStorage.
+- **PWA manifest + offline cache**: install-to-homescreen, loads without
+  network; pairs naturally with the offline-earnings loop.
+
+### Phase 6 — Deeper endgame
+
+For when regulars max the current arc (~wave 200, offline cap done).
+
+- **Ascension**: a second prestige layer at high rebirth counts — trade
+  all cores and core upgrades for **shards** with meta-multipliers, the
+  same reset-to-multiply trick one level up.
+- **Elite affix stacking**: past wave 100, elite waves roll two modifiers
+  at once (regenerating gold rush…); past 200, bosses are always modified.
+- **Weekly challenge**: same seeded machinery keyed on the ISO week — a
+  wave-60 target with a rule *pair* and a fat core payout.
+- **Cosmetics from streaks**: canvas border styles / palettes for daily
+  streaks and weekly clears — pure bragging rights, stored in the save.
 
 ## Balance targets
 

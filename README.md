@@ -53,6 +53,14 @@ turrets.
 - Endless waves with scaling HP and gold; a multi-pixel **boss** every 10
   waves — and from wave 60 bosses roll a modifier from the enemy pool
   (splitting boss, blinking boss…)
+- **Elite waves** every 25 waves, announced on screen before they start:
+  **FRENZY** (faster, pays 1.5×), **GOLD RUSH** (tougher, pays 3×) and
+  **REGEN** (enemies heal) rotate on a fixed schedule
+- **Daily challenge** (CORE tab, after your first rebirth): the date seeds
+  one rule for everyone — a banned weapon, HALF GOLD, RUNNERS/TANKS ONLY
+  or a BRITTLE WALL. Your main run is stashed while you play a fresh run
+  under the rule; clear wave 30 for a core payout that scales with your
+  best wave. One clear per day, no backend needed
 - Enemies that reach the turret line latch onto the **wall** and bite it
   every second — kill them before it breaks. The wall repairs itself once
   the biting stops (and fully between waves); if it drops to 0 the field
